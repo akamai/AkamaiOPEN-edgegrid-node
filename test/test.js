@@ -53,6 +53,21 @@ describe('Signature Generation', function() {
         });
     });
 
+    describe('Post uses passed-max-body', function() {
+        it('should return the expected string when the signing request is run.', function() {
+            var expected_header = "EG1-HMAC-SHA256 client_token=akab-client-token-xxx-xxxxxxxxxxxxxxxx;access_token=akab-access-token-xxx-xxxxxxxxxxxxxxxx;timestamp=20140321T19:34:21+0000;nonce=nonce-xx-xxxx-xxxx-xxxx-xxxxxxxxxxxx;signature=asJgKWm9tB/YhFByqnOtpcgvmzR+zpTGBgaSY/IhbNA=";
+            var data = "datadatadatadatadatadatadatadata";
+            var request = {
+                //"url": "https://akaa-kax6r2oleojomqr3-q2i5ed3v35xfwe3j.luna.akamaiapis.net/billing-usage/v1/contractusagedata/contract/C-6JGLXF/6/2014",
+                "path": "testapi/v1/t3",
+                "method": "POST",
+                "body": data
+            };
+            test_auth = auth.generate_auth(request, client_token, client_secret, access_token, base_url, false, 10, nonce, timestamp);
+            assert.equal(test_auth.headers.Authorization, expected_header);
+        });
+    });
+
     describe('POST too large', function() {
         it('should return the expected string when the signing request is run.', function() {
             var expected_header = "EG1-HMAC-SHA256 client_token=akab-client-token-xxx-xxxxxxxxxxxxxxxx;access_token=akab-access-token-xxx-xxxxxxxxxxxxxxxx;timestamp=20140321T19:34:21+0000;nonce=nonce-xx-xxxx-xxxx-xxxx-xxxxxxxxxxxx;signature=6Q6PiTipLae6n4GsSIDTCJ54bEbHUBp+4MUXrbQCBoY=";

@@ -1,5 +1,5 @@
 // Copyright 2014 Akamai Technologies, Inc. All Rights Reserved
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -23,7 +23,7 @@ function getSection(lines, sectionName) {
         lineMatch = line.match(match);
 
         if (lineMatch && lineMatch[1] === sectionName) {
-            section = lines.slice(i + 1, i + 5);
+            section = lines.slice(i + 1, i + 6);
         }
     });
 
@@ -37,7 +37,6 @@ function validatedConfig(config) {
 
     config.host = 'https://' + config.host;
 
-    console.log("Config: ", config);
     return config;
 }
 
@@ -46,12 +45,13 @@ function buildObj(configs) {
         keyVal;
 
     configs.forEach(function(config) {
-        // Break string apart at first occurance of equal sign 
+        // Break string apart at first occurance of equal sign
         // character in case the character is found in the value
         // strings.
         var index = config.indexOf('='),
-            key = config.substr(0, index)
-        val = config.substr(index + 1, config.length - index - 1);
+            rawkey = config.substr(0, index),
+            key = rawkey.replace('-','_'),
+            val = config.substr(index + 1, config.length - index - 1);
 
         result[key.trim()] = val.trim();
     });
@@ -63,10 +63,12 @@ module.exports = function(path, conf) {
     var edgerc = fs.readFileSync(path).toString().split("\n"),
         confSection = conf || 'default',
         confData = getSection(edgerc, confSection);
-
     if (!confData) {
         throw new Error('An error occurred parsing the .edgerc file. You probably specified an invalid section name.');
     }
-
-    return buildObj(confData);
+    var configObject = buildObj(confData);
+    if (!configObject) {
+        throw new Error('An error occurred parsing the .edgerc file. You probably have invalid data within a section.');
+    }
+    return configObject;
 };

@@ -1,5 +1,5 @@
 // Copyright 2014 Akamai Technologies, Inc. All Rights Reserved
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -23,7 +23,8 @@ describe('Api', function() {
             'clientToken',
             'clientSecret',
             'accessToken',
-            'base.com'
+            'base.com',
+            1000
         );
     });
 
@@ -42,6 +43,10 @@ describe('Api', function() {
 
         it('reports the API host', function() {
             assert.equal(this.api.config.host, 'https://base.com');
+        });
+
+        it('reports the max body', function() {
+            assert.equal(this.api.config.max_body, 1000);
         });
 
         describe('when it is instantiated with an API host that already contains the protocol', function() {
@@ -81,6 +86,10 @@ describe('Api', function() {
                 assert.equal(this.api.config.host, 'https://sectionexample.luna.akamaiapis.net');
             });
 
+            it('reports the max-body from the edgerc associated with the specified section', function() {
+                assert.equal(this.api.config.max_body, 131072);
+            });
+
             describe('when it is instantiated with an object that does not specfy a section', function() {
                 beforeEach(function() {
                     this.api = new Api({
@@ -102,6 +111,9 @@ describe('Api', function() {
 
                 it('reports the API host from the edgerc associated with the default section', function() {
                     assert.equal(this.api.config.host, 'https://example.luna.akamaiapis.net');
+                });
+                it('reports the max-body from the edgerc associated with the default section', function() {
+                    assert.equal(this.api.config.max_body, 131072);
                 });
             });
 
