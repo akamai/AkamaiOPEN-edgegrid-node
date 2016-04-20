@@ -26,7 +26,7 @@ module.exports = {
     var contentHash = '',
       preparedBody = request.body || '';
 
-    logger.debug("Preparedbody: ", preparedBody);
+    logger.info("Preparedbody: ", preparedBody);
 
     if (typeof preparedBody === 'object') {
       var postDataNew = '',
