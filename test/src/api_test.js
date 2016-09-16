@@ -17,8 +17,8 @@ var assert = require('assert'),
   path = require('path'),
   Api = require('../../src/api');
 
-describe('Api', function() {
-  beforeEach(function() {
+describe('Api', function () {
+  beforeEach(function () {
     this.api = new Api(
       'clientToken',
       'clientSecret',
@@ -27,25 +27,25 @@ describe('Api', function() {
     );
   });
 
-  describe('.config', function() {
-    it('reports the client token', function() {
+  describe('.config', function () {
+    it('reports the client token', function () {
       assert.equal(this.api.config.client_token, 'clientToken');
     });
 
-    it('reports the client secret', function() {
+    it('reports the client secret', function () {
       assert.equal(this.api.config.client_secret, 'clientSecret');
     });
 
-    it('reports the access token', function() {
+    it('reports the access token', function () {
       assert.equal(this.api.config.access_token, 'accessToken');
     });
 
-    it('reports the API host', function() {
+    it('reports the API host', function () {
       assert.equal(this.api.config.host, 'https://base.com');
     });
 
-    describe('when it is instantiated with an API host that already contains the protocol', function() {
-      it('it does not double declare the protocol', function() {
+    describe('when it is instantiated with an API host that already contains the protocol', function () {
+      it('it does not double declare the protocol', function () {
         this.api = new Api(
           'clientToken',
           'clientSecret',
@@ -57,58 +57,58 @@ describe('Api', function() {
       });
     });
 
-    describe('when it is instantiated with an object', function() {
-      beforeEach(function() {
+    describe('when it is instantiated with an object', function () {
+      beforeEach(function () {
         this.api = new Api({
           path: path.resolve(__dirname, '../test_edgerc'),
           section: 'section'
         });
       });
 
-      it('reports the client token from the edgerc associated with the specified section', function() {
+      it('reports the client token from the edgerc associated with the specified section', function () {
         assert.equal(this.api.config.client_token, 'sectionClientToken');
       });
 
-      it('reports the client secret from the edgerc associated with the specified section', function() {
+      it('reports the client secret from the edgerc associated with the specified section', function () {
         assert.equal(this.api.config.client_secret, 'sectionClientSecret');
       });
 
-      it('reports the access token from the edgerc associated with the specified section', function() {
+      it('reports the access token from the edgerc associated with the specified section', function () {
         assert.equal(this.api.config.access_token, 'sectionAccessToken');
       });
 
-      it('reports the API host from the edgerc associated with the specified section', function() {
+      it('reports the API host from the edgerc associated with the specified section', function () {
         assert.equal(this.api.config.host, 'https://sectionexample.luna.akamaiapis.net');
       });
 
-      describe('when it is instantiated with an object that does not specfy a section', function() {
-        beforeEach(function() {
+      describe('when it is instantiated with an object that does not specfy a section', function () {
+        beforeEach(function () {
           this.api = new Api({
             path: path.resolve(__dirname, '../test_edgerc')
           });
         });
 
-        it('reports the client token from the edgerc associated with the default section', function() {
+        it('reports the client token from the edgerc associated with the default section', function () {
           assert.equal(this.api.config.client_token, 'clientToken');
         });
 
-        it('reports the client secret from the edgerc associated with the default section', function() {
+        it('reports the client secret from the edgerc associated with the default section', function () {
           assert.equal(this.api.config.client_secret, 'clientSecret');
         });
 
-        it('reports the access token from the edgerc associated with the default section', function() {
+        it('reports the access token from the edgerc associated with the default section', function () {
           assert.equal(this.api.config.access_token, 'accessToken');
         });
 
-        it('reports the API host from the edgerc associated with the default section', function() {
+        it('reports the API host from the edgerc associated with the default section', function () {
           assert.equal(this.api.config.host, 'https://example.luna.akamaiapis.net');
         });
       });
 
-      describe('when it is instantiated with an object that does not specify a path nor a section', function() {
-        it('throws the appropriate error', function() {
+      describe('when it is instantiated with an object that does not specify a path nor a section', function () {
+        it('throws the appropriate error', function () {
           assert.throws(
-            function() {
+            function () {
               return new Api({});
             },
             /No edgerc path/
@@ -116,10 +116,10 @@ describe('Api', function() {
         });
       });
 
-      describe('when it is instantiated with an object that specifies an inadequate path', function() {
-        it('throws the appropriate error', function() {
+      describe('when it is instantiated with an object that specifies an inadequate path', function () {
+        it('throws the appropriate error', function () {
           assert.throws(
-            function() {
+            function () {
               return new Api({
                 path: ''
               });
@@ -131,10 +131,10 @@ describe('Api', function() {
     });
   });
 
-  describe('when it is not instantiated with valid credentials', function() {
-    it('throws the appropriate error', function() {
+  describe('when it is not instantiated with valid credentials', function () {
+    it('throws the appropriate error', function () {
       assert.throws(
-        function() {
+        function () {
           return new Api();
         },
         /Insufficient Akamai credentials/
@@ -142,37 +142,37 @@ describe('Api', function() {
     });
   });
 
-  describe('#auth', function() {
-    describe('when minimal request options are passed', function() {
-      beforeEach(function() {
+  describe('#auth', function () {
+    describe('when minimal request options are passed', function () {
+      beforeEach(function () {
         this.api.auth({
           path: '/foo'
         });
       });
 
-      it('adds an Authorization header to the request it is passed', function() {
+      it('adds an Authorization header to the request it is passed', function () {
         assert.equal(typeof this.api.request.headers.Authorization === 'string', true);
       });
 
-      it('ensures a default Content-Type of application/json', function() {
+      it('ensures a default Content-Type of application/json', function () {
         assert.equal(this.api.request.headers['Content-Type'], 'application/json');
       });
 
-      it('ensures a default GET method', function() {
+      it('ensures a default GET method', function () {
         assert.equal(this.api.request.method, 'GET');
       });
 
-      it('ensures a default empty body', function() {
+      it('ensures a default empty body', function () {
         assert.equal(this.api.request.body, '');
       });
 
-      it('ensures a url is properly declared', function() {
+      it('ensures a url is properly declared', function () {
         assert.equal(this.api.request.url, 'https://base.com/foo');
       });
     });
 
-    describe('when more specific request options are passed', function() {
-      beforeEach(function() {
+    describe('when more specific request options are passed', function () {
+      beforeEach(function () {
         this.api.auth({
           path: '/foo',
           method: 'POST',
@@ -183,32 +183,32 @@ describe('Api', function() {
         });
       });
 
-      it('adds an Authorization header to the request it is passed', function() {
+      it('adds an Authorization header to the request it is passed', function () {
         assert.equal(typeof this.api.request.headers.Authorization === 'string', true);
       });
 
-      it('ensures a default Content-Type of application/json', function() {
+      it('ensures a default Content-Type of application/json', function () {
         assert.equal(this.api.request.headers['Content-Type'], 'application/json');
       });
 
-      it('uses the specified POST method', function() {
+      it('uses the specified POST method', function () {
         assert.equal(this.api.request.method, 'POST');
       });
 
-      it('uses the specified body parsed as a JSON string', function() {
+      it('uses the specified body parsed as a JSON string', function () {
         console.log("BODY: ", this.api.request.body);
         assert.equal(this.api.request.body, '{"foo":"bar"}');
       });
 
-      it('extends the default request options with any others specified', function() {
+      it('extends the default request options with any others specified', function () {
         assert.equal(this.api.request.somethingArbitrary, 'someValue');
       });
     });
   });
 
-  describe('#send', function() {
-    describe('when authentication is done with a simple options object specifying only a path', function() {
-      beforeEach(function() {
+  describe('#send', function () {
+    describe('when authentication is done with a simple options object specifying only a path', function () {
+      beforeEach(function () {
         nock('https://base.com')
           .get('/foo')
           .reply(200, {
@@ -216,20 +216,20 @@ describe('Api', function() {
           });
       });
 
-      it('sends the HTTP GET request created by #auth', function(done) {
+      it('sends the HTTP GET request created by #auth', function (done) {
         this.api.auth({
           path: '/foo'
         });
 
-        this.api.send(function(data) {
+        this.api.send(function (data) {
           assert.equal(JSON.parse(data).foo, 'bar');
           done();
         });
       });
     });
 
-    describe('when authentication is done with a more complex options object specifying only a path', function() {
-      beforeEach(function() {
+    describe('when authentication is done with a more complex options object specifying only a path', function () {
+      beforeEach(function () {
         nock('https://base.com')
           .post('/foo')
           .reply(200, {
@@ -237,21 +237,21 @@ describe('Api', function() {
           });
       });
 
-      it('sends the HTTP created by #auth', function(done) {
+      it('sends the HTTP created by #auth', function (done) {
         this.api.auth({
           path: '/foo',
           method: 'POST'
         });
 
-        this.api.send(function(data) {
+        this.api.send(function (data) {
           assert.equal(JSON.parse(data).foo, 'bar');
           done();
         });
       });
     });
 
-    describe('when the initial request redirects', function() {
-      it('correctly follows the redirect and re-signs the request', function(done) {
+    describe('when the initial request redirects', function () {
+      it('correctly follows the redirect and re-signs the request', function (done) {
         nock('https://base.com')
           .get('/foo')
           .reply(302, undefined, {
@@ -266,11 +266,29 @@ describe('Api', function() {
           path: '/foo',
         });
 
-        this.api.send(function(data) {
+        this.api.send(function (data) {
           assert.equal(JSON.parse(data).bar, 'bim');
           done();
         });
       });
     });
+
+    describe('when the initial request fails', function () {
+      it('correctly handles the error in the callback', function (done) {
+        nock('https://base.com')
+          .get('/foo')
+          .replyWithError('something awful happened');
+
+        this.api.auth({
+          path: '/foo',
+        });
+
+        this.api.send(function (data) {
+          assert.equal(data.message, 'something awful happened');
+          done();
+        });
+      });
+    });
+
   });
 });
