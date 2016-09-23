@@ -69,7 +69,8 @@ EdgeGrid.prototype.auth = function(req) {
 EdgeGrid.prototype.send = function(callback) {
   request(this.request, function(error, response, body) {
     if (error) {
-      throw new Error(error);
+      // Removed throwing error and returned the error in callback;
+      return callback(error);
     }
 
     if (helpers.isRedirect(response.statusCode)) {
@@ -77,7 +78,8 @@ EdgeGrid.prototype.send = function(callback) {
       return;
     }
 
-    callback(body, response);
+    // Set error as null for success scenarios in callback
+    callback(null, body, response);
   }.bind(this));
 
   return this;
