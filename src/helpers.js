@@ -30,8 +30,6 @@ module.exports = {
       var postDataNew = '',
         key;
 
-      logger.info('Body content is type Object, transforming to POST data');
-
       for (key in preparedBody) {
         postDataNew += key + '=' + encodeURIComponent(JSON.stringify(preparedBody[key])) + '&';
       }
