@@ -46,7 +46,7 @@ module.exports = {
     logger.info('Body is \"' + preparedBody + '\"');
     logger.debug('PREPARED BODY LENGTH', preparedBody.length);
 
-    if (request.method === 'POST' && preparedBody.length > 0) {
+    if (request.method.toUpperCase() === 'POST' && preparedBody.length > 0) {
       logger.info('Signing content: \"' + preparedBody + '\"');
 
       // If body data is too large, cut down to max-body size
