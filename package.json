@@ -1,14 +1,15 @@
 {
-  "name": "edgegrid",
+  "name": "edgegrid-gas",
   "version": "3.0.4",
-  "description": "Authentication handler for the Akamai OPEN EdgeGrid Authentication scheme in Node.js",
+  "description": "Authentication handler for the Akamai OPEN EdgeGrid Authentication scheme in Google Apps",
   "main": "index.js",
   "scripts": {
+    "webpack": "./node_modules/.bin/webpack",
     "test": "EDGEGRID_ENV=test ./node_modules/.bin/mocha $(find test -name '*.js')"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/akamai-open/AkamaiOPEN-edgegrid-node.git"
+    "url": "https://github.com/akamai-open/AkamaiOPEN-edgegrid-gas.git"
   },
   "keywords": [
     "akamai",
@@ -20,17 +21,18 @@
   "contributors": [
     "Darius Kazemi",
     "Mike Ball",
-    "Kyle Tyacke"
+    "Kyle Tyacke",
+    "Junji Hashimoto"
   ],
   "license": "Apache-2.0",
   "dependencies": {
-    "log4js": "^0.6.14",
-    "moment": "^2.7.0",
-    "request": "2.83.0",
-    "uuid": "^3.0.0"
+    "request": "*",
+    "url": "*"
   },
   "devDependencies": {
     "mocha": "2.2.5",
-    "nock": "2.7.0"
+    "nock": "2.7.0",
+    "webpack": "2.*",
+    "gas-webpack-plugin": "*"
   }
 }

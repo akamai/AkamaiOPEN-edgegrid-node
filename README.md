@@ -1,12 +1,16 @@
-# EdgeGrid for Node.js
+# EdgeGrid for Google Apps Script
 
-[![Build Status](https://travis-ci.org/akamai-open/AkamaiOPEN-edgegrid-node.svg?branch=master)](https://travis-ci.org/akamai-open/AkamaiOPEN-edgegrid-node)
+[![Build Status](https://travis-ci.org/akamai-open/AkamaiOPEN-edgegrid-gas.svg?branch=master)](https://travis-ci.org/akamai-open/AkamaiOPEN-edgegrid-gas)
 
 This library implements an Authentication handler for the [Akamai OPEN](hhttps://developer.akamai.com/introduction/) EdgeGrid Authentication scheme in Node.js For more infomation visit the [Akamai {OPEN} Developer Portal](https://developer.akamai.com/).
 
 ## Installation
 
-`npm install --save edgegrid`
+```
+npm install
+npm run webpack
+#see bundle/index.gs
+```
 
 ## Example
 
@@ -14,9 +18,9 @@ This library implements an Authentication handler for the [Akamai OPEN](hhttps:/
 
 To use the Akamai OPEN APIs you must first register and authorize a set of credentials through the [LUNA Control Center](https://control.akamai.com/homeng/view/main). More information on creating and authorizing credentials can be found at [https://developer.akamai.com/introduction/Prov_Creds.html](https://developer.akamai.com/introduction/Prov_Creds.html)
 
-#### .edgerc Authentication
+#### Authentication
 
-The preferred method of using the library involves providing the path to an '.edgerc' file which contains the authenticaion credentials which will be used to sign your requests.
+You should authenticate manually by hard-coding your credential values and passing them to the EdgeGrid client.
 
 __NOTE__: Requests to the API are signed with a timestamp and therefore should be executed immediately.
 
@@ -25,13 +29,14 @@ var EdgeGrid = require('edgegrid');
 
 var data = 'bodyData';
 
-// Supply the path to your .edgerc file and name
-// of the section with authorization to the client
-// you are calling (default section is 'default')
-var eg = new EdgeGrid({
-  path: '/path/to/.edgerc',
-  section: 'section-name'
-});
+// Supply tokens and host.
+
+var clientToken = "akab-access-token-xxx-xxxxxxxxxxxxxxxx",
+    clientSecret = "akab-client-token-xxx-xxxxxxxxxxxxxxxx",
+    accessToken = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=",
+    baseUri = "https://akaa-baseurl-xxxxxxxxxxx-xxxxxxxxxxxxx.luna.akamaiapis.net/";
+
+var eg = new EdgeGrid(clientToken, clientSecret, accessToken, baseUri);
 
 eg.auth({
   path: '/diagnostic-tools/v1/locations',
@@ -43,37 +48,6 @@ eg.auth({
 eg.send(function(error, response, body) {
   console.log(body);
 });
-```
-
-An `.edgerc` file contains sections of credentials and is usually hosted in your home directory:
-
-```plaintext
-[default]
-host = akaa-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.luna.akamaiapis.net/
-client_token = akab-XXXXXXXXXXXXXXXX-XXXXXXXXXXXXXXXX
-client_secret = XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-access_token = akab-XXXXXXXXXXXXXXXX-XXXXXXXXXXXXXXXX
-max-body = 131072
-
-[section-name]
-host = akaa-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.luna.akamaiapis.net/
-client_token = akab-XXXXXXXXXXXXXXXX-XXXXXXXXXXXXXXXX
-client_secret = XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-access_token = akab-XXXXXXXXXXXXXXXX-XXXXXXXXXXXXXXXX
-max-body = 131072
-```
-
-#### Manual Authentication
-
-In addition supplying credentials via an .edgerc file as above, you may also authenticate manually by hard-coding your credential values and passing them to the EdgeGrid client:
-
-```javascript
-var clientToken = "akab-access-token-xxx-xxxxxxxxxxxxxxxx",
-    clientSecret = "akab-client-token-xxx-xxxxxxxxxxxxxxxx",
-    accessToken = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=",
-    baseUri = "https://akaa-baseurl-xxxxxxxxxxx-xxxxxxxxxxxxx.luna.akamaiapis.net/";
-
-var eg = new EdgeGrid(clientToken, clientSecret, accessToken, baseUri);
 ```
 
 #### Chaining

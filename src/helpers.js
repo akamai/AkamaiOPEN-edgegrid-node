@@ -12,14 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-var crypto = require('crypto'),
-  moment = require('moment'),
-  url = require('url'),
-  logger = require('./logger');
+var isGas = false;
+
+try {
+  //try to eval process to detect gas.
+  if(process){
+    isGas = false;
+  }
+} catch (err){
+  isGas = true;
+}
+
+var crypto = require('./mycrypto');
+var url = require('url');
+var logger = require('./logger');
 
 module.exports = {
+  isGas : isGas,
+
   createTimestamp: function() {
-    return moment().utc().format('YYYYMMDDTHH:mm:ss+0000');
+    function pad2(n) {  // always returns a string
+      return (n < 10 ? '0' : '') + n;
+    }
+    var d = new Date();
+    return d.getUTCFullYear() +
+      pad2(d.getUTCMonth() + 1) +
+      pad2(d.getUTCDate()) + 'T' +
+      pad2(d.getUTCHours()) + ':' +
+      pad2(d.getUTCMinutes()) + ':' +
+      pad2(d.getUTCSeconds()) + '+0000'
+    ;
   },
 
   contentHash: function(request, maxBody) {
@@ -58,7 +80,7 @@ module.exports = {
 
       logger.debug('PREPARED BODY', preparedBody);
 
-      contentHash = this.base64Sha256(preparedBody);
+      contentHash = crypto.base64Sha256(preparedBody);
       logger.info('Content hash is \"' + contentHash + '\"');
     }
 
@@ -101,20 +123,10 @@ module.exports = {
       300, 301, 302, 303, 307
     ].indexOf(statusCode) !== -1;
   },
+  base64Sha256: crypto.base64Sha256,
 
-  base64Sha256: function(data) {
-    var shasum = crypto.createHash('sha256').update(data);
+  base64HmacSha256: crypto.base64HmacSha256,
 
-    return shasum.digest('base64');
-  },
-
-  base64HmacSha256: function(data, key) {
-    var encrypt = crypto.createHmac('sha256', key);
-
-    encrypt.update(data);
-
-    return encrypt.digest('base64');
-  },
 
   /**
    * Creates a String containing a tab delimited set of headers.

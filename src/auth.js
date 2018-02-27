@@ -12,10 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-var uuid = require('uuid'),
-  helpers = require('./helpers'),
-  logger = require('./logger'),
-  url = require('url');
+//var uuid = require('uuid');
+var helpers = require('./helpers');
+var logger = require('./logger');
+var url = require('url');
+
+function myguid() {
+  function s4() {
+    return Math.floor((1 + Math.random()) * 0x10000)
+      .toString(16)
+      .substring(1);
+  }
+  return s4() + s4() + '-' + s4() + '-' + s4() + '-' + s4() + '-' + s4() + s4() + s4();
+}
 
 function makeAuthHeader(request, clientToken, accessToken, clientSecret, timestamp, nonce, maxBody) {
   var keyValuePairs = {
@@ -54,7 +63,7 @@ function makeURL(host, path, queryStringObj) {
 module.exports = {
   generateAuth: function(request, clientToken, clientSecret, accessToken, host, maxBody, guid, timestamp) {
     maxBody = maxBody || 131072;
-    guid = guid || uuid.v4();
+    guid = guid || myguid();
     timestamp = timestamp || helpers.createTimestamp();
 
     if (!request.hasOwnProperty('headers')) {
