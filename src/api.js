@@ -11,13 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+var helpers = require('./helpers');
 
-var request = require('request'),
-  url = require('url'),
-  auth = require('./auth'),
-  edgerc = require('./edgerc'),
-  helpers = require('./helpers'),
-  logger = require('./logger');
+var request = require('./myrequest');
+var url = require('url');
+var auth = require('./auth');
+var edgerc = require('./edgerc');
+var logger = require('./logger');
 
 var EdgeGrid = function(client_token, client_secret, access_token, host, debug) {
   // accepting an object containing a path to .edgerc and a config section

@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-var log4js = require('log4js'),
-    logger = log4js.getLogger();
+var helpers = require('./helpers');
 
-if (!process.env.LOG4JS_CONFIG) {
-  logger.setLevel(log4js.levels.ERROR);
-}
-
-module.exports = logger;
+module.exports = {
+  info: function (){},
+  debug: function (){},
+  warn: helpers.isGas ? Logger.log : console.log,
+  error: helpers.isGas ? Logger.log : console.log
+};
