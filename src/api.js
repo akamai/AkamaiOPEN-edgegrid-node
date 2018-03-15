@@ -68,8 +68,7 @@ EdgeGrid.prototype.auth = function(req) {
 };
 
 EdgeGrid.prototype.send = function(callback) {
-  request(this.request, function(error, response, body) { 
-    
+  request(this.request, function(error, response, body) {
     if (error) {
       callback(error);
       return;
@@ -78,8 +77,9 @@ EdgeGrid.prototype.send = function(callback) {
       this._handleRedirect(response, callback);
       return;
     }
-
-    callback(null, response, body);
+    // process response to make sure body is JSON
+    response = helpers.normalizeResponse(response);
+    callback(null, response, response.body);
   }.bind(this));
 
   return this;
