@@ -109,8 +109,8 @@ module.exports = {
     } catch (e) {
       response.body = JSON.stringify({
         supportId: "",
-        title: response.statusMessage,
-        httpStatus: response.statusCode,
+        title: response.statusMessage || "",
+        httpStatus: response.statusCode || 0,
         detail: "",
         describedBy: ""
       });
