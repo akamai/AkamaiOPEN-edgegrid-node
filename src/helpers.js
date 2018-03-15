@@ -102,6 +102,26 @@ module.exports = {
     ].indexOf(statusCode) !== -1;
   },
 
+  normalizeResponse: function(response) {
+    try {
+      // This will fail on an invalid JSON string
+      JSON.parse(response.body)
+    } catch (e) {
+      response.body = JSON.stringify({
+        supportId: "",
+        title: response.statusMessage,
+        httpStatus: response.statusCode,
+        detail: "",
+        describedBy: ""
+      });
+      response.headers["content-length"] = response.body.length;
+      response.headers["content-type"] = "application/api-problem+json";
+      response.rawHeaders[response.rawHeaders.indexOf("Content-Length") + 1] = response.headers["content-length"];
+      response.rawHeaders[response.rawHeaders.indexOf("Content-Type") + 1] = response.headers["content-type"];
+    }
+    return response;
+  },
+
   base64Sha256: function(data) {
     var shasum = crypto.createHash('sha256').update(data);
 
