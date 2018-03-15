@@ -297,5 +297,32 @@ describe('Api', function() {
         });
       });
     });
+    describe('when the server responds with HTML', function() {
+      it('transforms the response into JSON with code and message', function(done) {
+        var body = '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">'
+          + '<html><head>'
+          + '<title>413 Request Entity Too Large</title>'
+          + '</head><body>'
+          + '<h1>Request Entity Too Large</h1>'
+          + 'The requested resource<br />/restccu.wsgi/ccuopen/v3/invalidate/url/staging<br />'
+          + 'does not allow request data with POST requests, or the amount of data provided in'
+          + 'the request exceeds the capacity limit.'
+          + '</body></html>';
+        nock('https://base.com')
+          .post('/foo')
+          .reply(413, body);
+
+        this.api.auth({
+          path: '/foo',
+          method: 'POST'
+        });
+
+        this.api.send(function(error, response, data) {
+          var data = JSON.parse(data);
+          assert.equal(data.httpStatus, 413);
+          done();
+        });
+      });
+    });
   });
 });
