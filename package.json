@@ -27,7 +27,8 @@
     "log4js": "^0.6.14",
     "moment": "^2.22.2",
     "request": "^2.88.0",
-    "uuid": "^3.0.0"
+    "uuid": "^3.0.0",
+    "jsesc": "^2.5.2"
   },
   "devDependencies": {
     "mocha": "^5.2.0",
