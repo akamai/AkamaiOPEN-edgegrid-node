@@ -147,6 +147,29 @@ eg.auth({
 // Produces request url similar to:
 // http://hostaddress.luna.akamaiapis.net/diagnostic-tools/v1/dig?hostname=developer.akamai.com&queryType=A&location=location
 ```
+#### Encoding
+
+When interacting with binary data, such as during retrieval of PDF invoices, `encoding` should be specified as `null` during the `auth` method call. Omission of `encoding` will cause an unreadable or blank PDF.
+
+```javascript
+const fs = require('fs');
+eg.auth({
+  path : `/invoicing-api/v2/contracts/${contractId}/invoices/${invoiceNumber}/files/${fileName}`,
+  method: 'GET',
+  encoding: null,
+  body: {},
+  headers: {},
+  qs: {
+  }
+}).send((data,response) => {
+  fs.writeFile(`./${fileName}`, response.body,'binary',(err) => {
+    if (err){
+      return console.log(err);
+    }
+    console.log('File was saved!');
+  });
+});  
+```
 
 #### Debug
 
