@@ -8,7 +8,7 @@ This library implements an Authentication handler for the [Akamai OPEN](hhttps:/
 
 ## Installation
 
-`npm install --save edgegrid`
+`npm install --save edgegrid-update-log4js`
 
 ## Example
 
