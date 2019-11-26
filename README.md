@@ -1,6 +1,6 @@
 # EdgeGrid for Node.js
 
-[This verions of EdgeGrid for Node.js has updated log4js version from 0.6.14 to 1.0.0 to fix issues with SemVer plugin for webpack (see https://github.com/log4js-node/log4js-node/issues/391 fro more details)].
+#### This verions of EdgeGrid for Node.js has updated log4js version from 0.6.14 to 1.0.0 to fix issues with SemVer plugin for webpack (see https://github.com/log4js-node/log4js-node/issues/391 fro more details).
 
 [![Build Status](https://travis-ci.org/akamai/AkamaiOPEN-edgegrid-node.svg?branch=master)](https://travis-ci.org/akamai/AkamaiOPEN-edgegrid-node)
 
