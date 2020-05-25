@@ -213,7 +213,9 @@ describe('Api', function() {
   describe('#send', function() {
 
     it('should be chainable', function(){
-      assert.deepEqual(this.api, this.api.auth({ path: '/foo' }).send());
+      assert.deepEqual(this.api, this.api.auth({ path: '/foo' }).send(() => {
+        // do nothing...
+      }));
     });
 
     describe('when authentication is done with a simple options object specifying only a path', function() {
