@@ -53,8 +53,7 @@ EdgeGrid.prototype.auth = function (req) {
         url: req.path,
         method: 'GET',
         headers: {},
-        maxRedirects: 0,
-        body: ''
+        maxRedirects: 0
     });
 
     req.headers = helpers.extendHeaders(req.headers);
