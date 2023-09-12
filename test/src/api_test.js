@@ -280,8 +280,8 @@ describe('Api', function () {
                 assert.strictEqual(this.api.request.method, 'GET');
             });
 
-            it('ensures a default empty body', function () {
-                assert.strictEqual(this.api.request.body, '');
+            it('ensures a default undefined body', function () {
+                assert.strictEqual(this.api.request.body, undefined);
             });
 
             it('ensures a url is properly declared', function () {
