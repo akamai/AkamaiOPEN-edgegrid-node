@@ -21,7 +21,7 @@
   "dependencies": {
     "axios": "^1.1.2",
     "log4js": "^6.4.0",
-    "uuid": "^10.0.0"
+    "uuid": "^11.0.4"
   },
   "devDependencies": {
     "mocha": "^11.0.1",
