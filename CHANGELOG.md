@@ -1,5 +1,22 @@
 # Release notes
 
+## X.X.X (XXX XX, XXXX)
+
+### Breaking Changes
+
+* Replaced `log4js` with `pino` for logging and removed `log4js` dependency.
+* Updated logging configuration with the following environment variables:
+  * `AKAMAI_LOG_LEVEL` - controls log severity. Possible values are:`fatal`, `error`, `warn`, `info`, `debug`, `trace`. Default is `info`.
+  * `AKAMAI_LOG_PRETTY` - enables pretty-printed, human-readable log format when set to `true`. Defaults to `false`.
+* Logging is now disabled by default, ensuring zero logging unless explicitly enabled.
+* Introduced `enableLogging(option)` function to programmatically control logging:
+  * Passing `true` enables logging based on environment variables. 
+  * Passing a valid "pino-like" logger object sets the current logger. Custom loggers must implement the `info`, `debug`, `error`, and `warn` methods.
+* Exported `enableLogging` for external use, replacing the previous default `logger` export.
+* Removed support for `EG_VERBOSE` env variable; Axios interceptors now always log at `debug` level.
+* Removed support for `debug` parameter from EdgeGrid constructor; debugging is now fully managed through `enableLogging()`.
+
+
 ## 3.5.3 (Apr 09, 2025)
 
 ### Features/Enhancements

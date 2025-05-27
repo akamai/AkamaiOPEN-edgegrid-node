@@ -1,5 +1,5 @@
 const crypto = require('crypto'),
-    logger = require('./logger'),
+    { getLogger } = require('./logger'),
     path = require('path'),
     os = require('os');
 const MAX_BODY = 131072
@@ -29,7 +29,7 @@ module.exports = {
             '+0000';
     },
     contentHash: function (request) {
-
+        var logger = getLogger()
         let contentHash = '',
             preparedBody = request.body || '',
             isTarball = preparedBody instanceof Uint8Array && request.headers['Content-Type'] === 'application/gzip';
@@ -51,27 +51,31 @@ module.exports = {
             request.body = preparedBody; // Is this required or being used?
         }
 
-        logger.info('Body is \"' + preparedBody + '\"');
-        logger.debug('PREPARED BODY LENGTH', preparedBody.length);
+        logger.info({ body: preparedBody }, 'Body');
+        logger.debug({ length: preparedBody.length }, 'Prepared body length');
 
         if (request.method === 'POST' && preparedBody.length > 0) {
 
-            logger.info('Signing content: \"' + preparedBody + '\"');
+            logger.info({ body: preparedBody }, 'Signing content');
 
             // If body data is too large, cut down to max-body size which is const value
             if (preparedBody.length > MAX_BODY) {
-                logger.warn('Data length (' + preparedBody.length + ') is larger than maximum ' + MAX_BODY);
+                logger.warn({
+                    length: preparedBody.length,
+                    maxAllowed: MAX_BODY,
+                }, 'Data length exceeds maximum allowed');
+
                 if (isTarball)
                     preparedBody = preparedBody.slice(0, MAX_BODY);
                 else
                     preparedBody = preparedBody.substring(0, MAX_BODY);
-                logger.info('Body truncated. New value \"' + preparedBody + '\"');
+                logger.info({ newBody: preparedBody }, 'Body truncated');
             }
 
-            logger.debug('PREPARED BODY', preparedBody);
+            logger.debug({ preparedBody }, 'Prepared body content');
 
             contentHash = this.base64Sha256(preparedBody);
-            logger.info('Content hash is \"' + contentHash + '\"');
+            logger.info({ hash: contentHash }, 'Content hash is');
         }
 
         return contentHash;
@@ -100,7 +104,7 @@ module.exports = {
 
         const dataToSignStr = dataToSign.join('\t').toString();
 
-        logger.info('Data to sign: "' + dataToSignStr + '" \n');
+        getLogger().info({ data: dataToSignStr }, 'Data to sign');
 
         return dataToSignStr;
     },
@@ -180,7 +184,7 @@ module.exports = {
     signingKey: function (timestamp, clientSecret) {
         const key = this.base64HmacSha256(timestamp, clientSecret);
 
-        logger.info('Signing key: ' + key + '\n');
+        getLogger().info({ key }, 'Signing key used');
 
         return key;
     },

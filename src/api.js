@@ -2,7 +2,7 @@ const axios = require('axios'),
     auth = require('./auth'),
     edgerc = require('./edgerc'),
     helpers = require('./helpers'),
-    logger = require('./logger');
+    { enableLogging, getLogger } = require('./logger');
 
 /**
  *
@@ -10,12 +10,11 @@ const axios = require('axios'),
  * @param {String} client_secret     The client secret value from the .edgerc file.
  * @param {String} access_token      The access token value from the .edgerc file.
  * @param {String} host              The host a unique string followed by luna.akamaiapis.net from the .edgerc file.
- * @param {Boolean} debug            The debug value allows to enable debugging.
  * @param {Number} max_body          This value is deprecated.
  * @constructor
  * @deprecated max_body
  */
-const EdgeGrid = function (client_token, client_secret, access_token, host, debug, max_body) {
+const EdgeGrid = function (client_token, client_secret, access_token, host, max_body) {
     // accepting an object containing a path to .edgerc and a config section
     if (typeof arguments[0] === 'object') {
         let edgercPath = arguments[0];
@@ -23,16 +22,16 @@ const EdgeGrid = function (client_token, client_secret, access_token, host, debu
     } else {
         this._setConfigFromStrings(client_token, client_secret, access_token, host);
     }
-    if (process.env.EG_VERBOSE || debug || (typeof arguments[0] === 'object' && arguments[0].debug)) {
-        axios.interceptors.request.use(request => {
-            console.log('Starting Request', request);
-            return request;
-        });
-        axios.interceptors.response.use(response => {
-            console.log('Response:', response);
-            return response;
-        });
-    }
+
+    axios.interceptors.request.use(request => {
+        getLogger().debug({ request }, 'Starting request');
+        return request;
+    });
+
+    axios.interceptors.response.use(response => {
+        getLogger().debug({ response }, 'Received response');
+        return response;
+    });
 };
 
 /**
@@ -143,7 +142,7 @@ function validatedArgs(args) {
 
     expected.forEach(function (arg, i) {
         if (!args[i]) {
-            logger.error('No defined ' + arg);
+            getLogger().error({ arg }, 'No defined argument');
             valid = false;
         }
     });
@@ -159,6 +158,19 @@ function validatedArgs(args) {
  */
 EdgeGrid.prototype._setConfigFromObj = function (obj) {
     this.config = edgerc(obj.path, obj.section);
+};
+
+/**
+ * Enables logging based on the provided option.
+ *
+ * @param {boolean|object} option - If true, configures the logger using environment variables.
+ *                                  If a valid object, uses it as the logger instance.
+ *                                  If false, disables logging.
+ * @return EdgeGrid object (self)
+ */
+EdgeGrid.prototype.enableLogging = function(option) {
+    enableLogging(option);
+    return this;
 };
 
 module.exports = EdgeGrid;
