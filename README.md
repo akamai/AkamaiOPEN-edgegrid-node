@@ -224,6 +224,53 @@ Enable debugging to get additional information about a request. You can configur
   $ node src/main.js
   ```
 
+### Custom Axios Instance
+
+You can inject a custom axios instance to use instead of the default one. This allows you to configure custom timeouts, interceptors, or other axios-specific features.
+
+#### Using string parameters:
+
+```javascript
+const axios = require('axios');
+
+// Create a custom axios instance
+const customAxios = axios.create({
+    timeout: 30000, // 30 second timeout
+    headers: {
+        'User-Agent': 'MyCustomApp/1.0'
+    }
+});
+
+// Add custom interceptors
+customAxios.interceptors.request.use(config => {
+    console.log('Making request to:', config.url);
+    return config;
+});
+
+// Use with EdgeGrid
+var eg = new EdgeGrid(
+    'your-client-token',
+    'your-client-secret', 
+    'your-access-token',
+    'your-host.luna.akamaiapis.net',
+    false, // debug
+    undefined, // max_body
+    customAxios // custom axios instance
+);
+```
+
+#### Using object configuration:
+
+```javascript
+var eg = new EdgeGrid({
+    path: '/path/to/.edgerc',
+    section: 'section-header',
+    axiosInstance: customAxios
+});
+```
+
+If no custom axios instance is provided, the library will use the default axios instance.
+
 
 
 ## Reporting issues
