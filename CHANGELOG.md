@@ -1,6 +1,6 @@
 # Release notes
 
-## 3.5.4 (Jul 23, 2025)
+## 3.5.4 (Jul 24, 2025)
 
 ### Features/Enhancements
 
