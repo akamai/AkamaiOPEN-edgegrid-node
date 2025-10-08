@@ -2,7 +2,7 @@
 
 ![Build Status](https://github.com/akamai/AkamaiOPEN-edgegrid-node/actions/workflows/test.yml/badge.svg)
 
-This library implements an Authentication handler for the Akamai EdgeGrid Authentication scheme in Node.js for Node v14 and above.
+This library implements an Authentication handler for the Akamai EdgeGrid Authentication scheme in Node.js for Node v20 and higher LTS versions.
 
 You can find the most up-to-date package in [NPM](https://www.npmjs.com/package/akamai-edgegrid) under `akamai-edgegrid`.
 
