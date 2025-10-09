@@ -16,11 +16,19 @@
 * Removed support for `EG_VERBOSE` env variable; Axios interceptors now always log at `debug` level.
 * Removed support for `debug` parameter from EdgeGrid constructor; debugging is now fully managed through `enableLogging()`.
 
+## 3.5.5 (Oct 8, 2025)
+
+### Features/Enhancements
+
+* Updated various dependencies.
+* Removed support for Node.js versions 18, 21 and 23.
+
 ## 3.5.4 (Jul 24, 2025)
 
 ### Features/Enhancements
 
 * Updated various dependencies.
+* Removed support for Node.js versions 14 and 16.
 
 ## 3.5.3 (Apr 09, 2025)
 
