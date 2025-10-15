@@ -1,5 +1,11 @@
 # Release notes
 
+## 3.5.6 (Oct 15, 2025)
+
+### Bug fixes
+
+* Replaced `uuid` package with `crypto` after uuid v13 dropped CommonJS support, to fix the compatibility issues.
+
 ## 3.5.5 (Oct 8, 2025)
 
 ### Features/Enhancements
