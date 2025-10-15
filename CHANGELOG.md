@@ -1,6 +1,6 @@
 # Release notes
 
-## X.X.X (X X, X)
+## 3.5.6 (Oct 15, 2025)
 
 ### Bug fixes
 
