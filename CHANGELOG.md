@@ -1,5 +1,6 @@
 # Release notes
 
+
 ## X.X.X (XXX XX, XXXX)
 
 ### Breaking Changes
@@ -15,6 +16,12 @@
 * Exported `enableLogging` for external use, replacing the previous default `logger` export.
 * Removed support for `EG_VERBOSE` env variable; Axios interceptors now always log at `debug` level.
 * Removed support for `debug` parameter from EdgeGrid constructor; debugging is now fully managed through `enableLogging()`.
+
+## 3.5.6 (Oct 15, 2025)
+
+### Bug fixes
+
+* Replaced `uuid` package with `crypto` after uuid v13 dropped CommonJS support, to fix the compatibility issues.
 
 ## 3.5.5 (Oct 8, 2025)
 

@@ -1,4 +1,4 @@
-const uuid = require('uuid'),
+const { randomUUID } = require('crypto'),
     helpers = require('./helpers'),
     { getLogger } = require('./logger'),
     url = require('url');
@@ -76,7 +76,7 @@ module.exports = {
      * @deprecated maxBody
      */
     generateAuth: function (request, clientToken, clientSecret, accessToken, host, maxBody, guid, timestamp) {
-        guid = guid || uuid.v4();
+        guid = guid || randomUUID();
         timestamp = timestamp || helpers.createTimestamp();
 
         if (!request.hasOwnProperty('headers')) {
