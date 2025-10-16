@@ -6,29 +6,42 @@ const axios = require('axios'),
 
 /**
  *
- * @param {String} client_token      The client token value from the .edgerc file.
+ * @param {String|Object} client_token_or_config  Either the client token value from the .edgerc file,
+ *                                                or an object containing configuration options including:
+ *                                                - path: path to .edgerc file
+ *                                                - section: section name in .edgerc file
+ *                                                - debug: enable debugging
+ *                                                - axiosInstance: custom axios instance to use
  * @param {String} client_secret     The client secret value from the .edgerc file.
  * @param {String} access_token      The access token value from the .edgerc file.
  * @param {String} host              The host a unique string followed by luna.akamaiapis.net from the .edgerc file.
  * @param {Boolean} debug            The debug value allows to enable debugging.
  * @param {Number} max_body          This value is deprecated.
+ * @param {Object} axiosInstance     Optional custom axios instance to use instead of the global one.
  * @constructor
  * @deprecated max_body
  */
-const EdgeGrid = function (client_token, client_secret, access_token, host, debug, max_body) {
+const EdgeGrid = function (client_token, client_secret, access_token, host, debug, max_body, axiosInstance) {
+    // Store the axios instance (custom or default)
+    this.axiosInstance = axiosInstance || axios;
+    
     // accepting an object containing a path to .edgerc and a config section
     if (typeof arguments[0] === 'object') {
         let edgercPath = arguments[0];
+        // Check if axiosInstance is provided in the object
+        if (edgercPath.axiosInstance) {
+            this.axiosInstance = edgercPath.axiosInstance;
+        }
         this._setConfigFromObj(edgercPath);
     } else {
         this._setConfigFromStrings(client_token, client_secret, access_token, host);
     }
     if (process.env.EG_VERBOSE || debug || (typeof arguments[0] === 'object' && arguments[0].debug)) {
-        axios.interceptors.request.use(request => {
+        this.axiosInstance.interceptors.request.use(request => {
             console.log('Starting Request', request);
             return request;
         });
-        axios.interceptors.response.use(response => {
+        this.axiosInstance.interceptors.response.use(response => {
             console.log('Response:', response);
             return response;
         });
@@ -88,7 +101,7 @@ EdgeGrid.prototype.auth = function (req) {
  * @return EdgeGrid object (self)
  */
 EdgeGrid.prototype.send = function (callback) {
-    axios(this.request).then(response => {
+    this.axiosInstance(this.request).then(response => {
         callback(null, response, JSON.stringify(response.data));
     }).catch(error => {
         // handling redirects has to be handled in catch (with maxRedirects set to 0) because axios does not allow modifying headers between redirects
