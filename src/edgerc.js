@@ -1,5 +1,5 @@
 const fs = require('fs'),
-    logger = require('./logger'),
+    { getLogger } = require('./logger'),
     helpers = require('./helpers');
 
 function getSection(lines, sectionName) {
@@ -41,7 +41,7 @@ function validatedConfig(config) {
                 errorMessage += "\nMissing: " + token;
             }
         });
-        console.log('Missing part of the configuration:\n' + errorMessage);
+        getLogger().error({ errorMessage }, 'Missing part of the configuration');
         return {};
     }
 
@@ -91,6 +91,7 @@ function buildObj(configs) {
 }
 
 function readEnv(section) {
+    var logger = getLogger();
     const requiredKeys = ["HOST", "ACCESS_TOKEN", "CLIENT_TOKEN", "CLIENT_SECRET"],
         prefix = !section || section === "default" ? "AKAMAI_" : "AKAMAI_" + section.toUpperCase() + "_",
         envConfig = {};
@@ -99,7 +100,7 @@ function readEnv(section) {
     for (const key of requiredKeys) {
         const varName = prefix + key;
         if (!process.env[varName]) {
-            logger.debug("Environment variable not set: " + varName);
+            logger.debug({ varName }, 'Environment variable not set');
             continue;
         }
         envConfig[key.toLowerCase()] = process.env[prefix + key];
@@ -107,7 +108,7 @@ function readEnv(section) {
     if (Object.keys(envConfig).length < requiredKeys.length) {
         return {};
     }
-    console.log("Using configuration from environment variables");
+    logger.info('Using configuration from environment variables');
     return validatedConfig(envConfig);
 }
 

@@ -168,6 +168,72 @@ eg.auth({
 });
 ```
 
+### Logging
+The library supports configurable logging through the `enableLogging()` method.
+
+- `enableLogging()`
+  - Enable with Environment Variables:
+    - `AKAMAI_LOG_LEVEL` (Default: 'info')
+      - Valid values:
+        - 'error'
+        - 'warn'
+        - 'info'
+        - 'debug'
+        - 'fatal'
+        - 'trace' 
+        
+    - `AKAMAI_LOG_PRETTY` (Default: 'false')
+      - Valid values: 'true' or 'false'
+
+```javascript
+const edgeGrid = require('akamai-edgegrid');
+
+// Set environment variables before enabling
+process.env.AKAMAI_LOG_LEVEL = 'debug';
+process.env.AKAMAI_LOG_PRETTY = 'true';
+
+var eg = new EdgeGrid({
+    path: '/path/to/.edgerc', 
+    section: '<section-header>'
+});
+eg.enableLogging(true);
+```
+
+  - Disable Logging:
+```javascript
+const edgeGrid = require('akamai-edgegrid');
+var eg = new EdgeGrid({
+    path: '/path/to/.edgerc',
+    section: '<section-header>'
+});
+eg.enableLogging(false);
+```
+
+  - Custom Logger:
+    - You can also pass a custom logger object to enableLogging. The object must have info, debug, error and warn methods.
+    - If you pass an object that does not implement the required info, debug, error and warn methods, an error will be thrown.
+
+```javascript
+const edgeGrid = require('akamai-edgegrid');
+//custom logger
+const logger = {
+  info: (msg, ...args) => console.log('INFO:', msg, ...args),
+  debug: (msg, ...args) => console.log('DEBUG:', msg, ...args),
+  error: (msg, ...args) => console.error('ERROR:', msg, ...args),
+  warn: (msg, ...args) => console.warn('WARN:', msg, ...args)  
+};
+
+var eg = new EdgeGrid({
+    path: '/path/to/.edgerc',
+    section: '<section-header>'
+});
+
+eg.enableLogging(logger); // Pass the custom logger 
+
+logger.info('Using custom logger for logging.');
+logger.error('An error occurred!');
+```
+    
 ### Proxy
 
 To use edgegrid with proxy, you can configure it with one of these methods:
@@ -202,29 +268,6 @@ To use edgegrid with proxy, you can configure it with one of these methods:
   $ export HTTPS_PROXY=https://username:password@host:port
   $ node myapp.js
   ```
-
-### Debug
-
-Enable debugging to get additional information about a request. You can configure this with one of these methods:
-
-- Add the `debug` argument to the `EdgeGrid()` method.
-
-  ```javascript
-  var eg = new EdgeGrid({
-    path: '/path/to/.edgerc',
-    section: 'section-header'
-    debug: true
-  });
-  ```
-
-- Set the `EG_VERBOSE` environment variable.
-
-  ```shell
-  $ export EG_VERBOSE=true
-  $ node src/main.js
-  ```
-
-
 
 ## Reporting issues
 

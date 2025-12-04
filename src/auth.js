@@ -1,6 +1,6 @@
 const { randomUUID } = require('crypto'),
     helpers = require('./helpers'),
-    logger = require('./logger'),
+    { getLogger } = require('./logger'),
     url = require('url');
 
 /**
@@ -36,11 +36,11 @@ function makeAuthHeader(request, clientToken, accessToken, clientSecret, timesta
 
     authHeader = 'EG1-HMAC-SHA256 ' + joinedPairs;
 
-    logger.info('Unsigned authorization header: ' + authHeader + '\n');
+    getLogger().info({ authHeader }, 'Unsigned authorization header');
 
     signedAuthHeader = authHeader + 'signature=' + helpers.signRequest(request, timestamp, clientSecret, authHeader, maxBody);
 
-    logger.info('Signed authorization header: ' + signedAuthHeader + '\n');
+    getLogger().info({ signedAuthHeader }, 'Signed authorization header');
 
     return signedAuthHeader;
 }
