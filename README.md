@@ -14,7 +14,7 @@ You can find the most up-to-date package in [NPM](https://www.npmjs.com/package/
 
 You can obtain the authentication credentials through an API client. Requests to the API are marked with a timestamp and a signature and are executed immediately.
 
-1. [Create authentication credentials](https://techdocs.akamai.com/developer/docs/set-up-authentication-credentials).
+1. [Create authentication credentials](https://techdocs.akamai.com/developer/docs/edgegrid).
 
 2. Place your credentials in an EdgeGrid file `~/.edgerc`, in the `[default]` section.
 
@@ -171,69 +171,60 @@ eg.auth({
 ### Logging
 The library supports configurable logging through the `enableLogging()` method.
 
-- `enableLogging()`
-  - Enable with Environment Variables:
-    - `AKAMAI_LOG_LEVEL` (Default: 'info')
-      - Valid values:
-        - 'error'
-        - 'warn'
-        - 'info'
-        - 'debug'
-        - 'fatal'
-        - 'trace' 
-        
-    - `AKAMAI_LOG_PRETTY` (Default: 'false')
-      - Valid values: 'true' or 'false'
+- Enable logging with environment variables.
+  - `AKAMAI_LOG_LEVEL`. Sets the verbosity level of the emitted log messages. Valid values are `error`, `warn`, `info`, `debug`, `fatal`, and `trace`. Default to `info.`
+  - `AKAMAI_LOG_PRETTY`. Controls whether the log output is formatted in a human-friendly way. Valid values are `true` or `false`. Defaults to `false`.
 
-```javascript
-const edgeGrid = require('akamai-edgegrid');
+  ```javascript
+  const edgeGrid = require('akamai-edgegrid');
 
-// Set environment variables before enabling
-process.env.AKAMAI_LOG_LEVEL = 'debug';
-process.env.AKAMAI_LOG_PRETTY = 'true';
+  // Set environment variables before enabling logging
+  process.env.AKAMAI_LOG_LEVEL = 'debug';
+  process.env.AKAMAI_LOG_PRETTY = 'true';
 
-var eg = new EdgeGrid({
-    path: '/path/to/.edgerc', 
-    section: '<section-header>'
-});
-eg.enableLogging(true);
-```
+  var eg = new EdgeGrid({
+      path: '/path/to/.edgerc', 
+      section: '<section-header>'
+  });
+  eg.enableLogging(true);
+  ```
 
-  - Disable Logging:
-```javascript
-const edgeGrid = require('akamai-edgegrid');
-var eg = new EdgeGrid({
-    path: '/path/to/.edgerc',
-    section: '<section-header>'
-});
-eg.enableLogging(false);
-```
+- Disable logging.
 
-  - Custom Logger:
-    - You can also pass a custom logger object to enableLogging. The object must have info, debug, error and warn methods.
-    - If you pass an object that does not implement the required info, debug, error and warn methods, an error will be thrown.
+  ```javascript
+  const edgeGrid = require('akamai-edgegrid');
+  var eg = new EdgeGrid({
+      path: '/path/to/.edgerc',
+      section: '<section-header>'
+  });
+  eg.enableLogging(false);
+  ```
 
-```javascript
-const edgeGrid = require('akamai-edgegrid');
-//custom logger
-const logger = {
-  info: (msg, ...args) => console.log('INFO:', msg, ...args),
-  debug: (msg, ...args) => console.log('DEBUG:', msg, ...args),
-  error: (msg, ...args) => console.error('ERROR:', msg, ...args),
-  warn: (msg, ...args) => console.warn('WARN:', msg, ...args)  
-};
+- Add a custom logger.
+  - You can also pass a custom logger object to the `enableLogging()` method. The object must have the `info`, `debug`, `error`, and `warn` methods.
+  - If you pass a logger object that doesn't implement the required methods, you'll get an error.
 
-var eg = new EdgeGrid({
-    path: '/path/to/.edgerc',
-    section: '<section-header>'
-});
+  ```javascript
+  const edgeGrid = require('akamai-edgegrid');
+  // custom logger
+  const logger = {
+    info: (msg, ...args) => console.log('INFO:', msg, ...args),
+    debug: (msg, ...args) => console.log('DEBUG:', msg, ...args),
+    error: (msg, ...args) => console.error('ERROR:', msg, ...args),
+    warn: (msg, ...args) => console.warn('WARN:', msg, ...args)  
+  };
 
-eg.enableLogging(logger); // Pass the custom logger 
+  var eg = new EdgeGrid({
+      path: '/path/to/.edgerc',
+      section: '<section-header>'
+  });
 
-logger.info('Using custom logger for logging.');
-logger.error('An error occurred!');
-```
-    
+  eg.enableLogging(logger); // Pass the custom logger 
+
+  logger.info('Using custom logger for logging.');
+  logger.error('An error occurred!');
+  ```
+
 ### Proxy
 
 To use edgegrid with proxy, you can configure it with one of these methods:
@@ -275,7 +266,7 @@ To report an issue or make a suggestion, create a new [GitHub issue](https://git
 
 ## License
 
-Copyright 2025 Akamai Technologies, Inc. All rights reserved.
+Copyright 2026 Akamai Technologies, Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use these files except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0.
 

@@ -1,5 +1,10 @@
 # Release notes
 
+## 4.0.1 (Mar 4, 2026)
+
+### Features/Enhancements
+
+* Updated various dependencies.
 
 ## 4.0.0 (Dec 4, 2025)
 
