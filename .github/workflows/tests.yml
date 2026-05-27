@@ -42,6 +42,46 @@ jobs:
           name: test-results-${{ matrix.node-version }}
           path: test/
 
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Run npm audit
+        id: npm_audit
+        run: |
+          set +e
+          npm audit --audit-level=high --json > npm-audit.json
+          audit_exit_code=$?
+          echo "exit_code=${audit_exit_code}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Generate audit summary
+        if: always()
+        run: python3 ci/audit_report.py npm-audit.json >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload audit output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: npm-audit-report
+          path: npm-audit.json
+
+      - name: Fail if vulnerabilities found
+        if: always()
+        run: |
+          if [[ "${{ steps.npm_audit.outputs.exit_code }}" != "0" ]]; then
+            echo "npm audit detected vulnerabilities at or above the configured threshold." >&2
+            exit 1
+          fi
+
   report:
     name: Unit Test Report
     needs: test
