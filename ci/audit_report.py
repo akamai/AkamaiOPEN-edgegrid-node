@@ -18,7 +18,7 @@ def generate_markdown_table(json_path):
 
     print("## npm Audit Report")
     print("| Package | Severity | Vulnerable Range | Fix Available |")
-    print("|---|---|---|---|")
+    print("| :--- | :---: | :---: | :---: |")
 
     for pkg, details in vulnerabilities.items():
         severity = details.get('severity', 'unknown').capitalize()
