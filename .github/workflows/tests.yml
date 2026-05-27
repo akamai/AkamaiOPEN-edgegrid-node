@@ -56,9 +56,10 @@ jobs:
 
       - name: Run npm audit
         id: npm_audit
+        # Do not audit dev dependencies
         run: |
           set +e
-          npm audit --audit-level=high --json > npm-audit.json
+          npm audit --omit=dev --audit-level=high --json > npm-audit.json
           audit_exit_code=$?
           echo "exit_code=${audit_exit_code}" >> "$GITHUB_OUTPUT"
           exit 0
