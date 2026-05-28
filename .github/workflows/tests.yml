@@ -65,18 +65,15 @@ jobs:
           exit 0
 
       - name: Generate audit summary
-        if: always()
         run: python3 ci/audit_report.py npm-audit.json >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload audit output
-        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: npm-audit-report
           path: npm-audit.json
 
       - name: Fail if vulnerabilities found
-        if: always()
         run: |
           if [[ "${{ steps.npm_audit.outputs.exit_code }}" != "0" ]]; then
             echo "npm audit detected vulnerabilities at or above the configured threshold." >&2
