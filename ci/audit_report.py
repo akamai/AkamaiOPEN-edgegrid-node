@@ -13,7 +13,7 @@ def generate_markdown_table(json_path):
     vulnerabilities = data.get('vulnerabilities', {})
 
     if not vulnerabilities:
-        print("## npm Audit Report\nNo vulnerabilities found! 🎉")
+        print("## npm Audit Report\n✅ No vulnerabilities found!")
         return
 
     print("## npm Audit Report")
