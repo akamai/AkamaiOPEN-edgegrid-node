@@ -1,0 +1,80 @@
+name: Publish to npm
+
+# Triggered by releases and prereleases, but not by draft releases.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Build and pack the npm tarball
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build distribution package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      # Creates the exact tarball that will be published.
+      - name: Pack distribution tarball
+        run: |
+          mkdir dist-package
+          npm pack --pack-destination=dist-package
+
+      - name: Upload distribution tarball
+        uses: actions/upload-artifact@v7
+        with:
+          name: npm-package
+          path: dist-package/
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # 2. Publish to npm using Trusted Publishing
+  # ---------------------------------------------------------------------------
+  publish:
+    name: Publish to npm
+    needs: build
+    runs-on: ubuntu-latest
+
+    environment: ${{ github.event.release.prerelease && 'rc' || 'production' }}
+
+    permissions:
+      contents: read
+      id-token: write # Required for npm trusted publishing / OIDC
+
+    steps:
+      - name: Download distribution tarball
+        uses: actions/download-artifact@v8
+        with:
+          name: npm-package
+          path: dist-package
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: "https://registry.npmjs.org/"
+
+      - name: Publish to npm
+        # Uses a ternary operator to select 'rc' for prereleases, otherwise 'latest'
+        run: |
+          npm publish dist-package/*.tgz \
+            --tag ${{ github.event.release.prerelease && 'rc' || 'latest' }}
