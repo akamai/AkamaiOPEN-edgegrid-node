@@ -35,13 +35,15 @@ jobs:
 
       # Creates the exact tarball that will be published.
       - name: Pack distribution tarball
-        run: npm pack
+        run: |
+          mkdir dist-package
+          npm pack --pack-destination=dist-package
 
       - name: Upload distribution tarball
         uses: actions/upload-artifact@v7
         with:
           name: npm-package
-          path: "*.tgz"
+          path: dist-package/
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
