@@ -1,6 +1,6 @@
 # Release notes
 
-## 4.0.3 (UNRELEASED)
+## 4.0.3 (Jun 2, 2026)
 
 ### Features/Enhancements
 
