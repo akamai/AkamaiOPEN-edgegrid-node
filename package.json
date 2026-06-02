@@ -1,6 +1,6 @@
 {
   "name": "akamai-edgegrid",
-  "version": "4.0.3-rc.2",
+  "version": "4.0.3-rc.3",
   "description": "Authentication handler for the Akamai OPEN EdgeGrid Authentication scheme in Node.js",
   "main": "index.js",
   "scripts": {
@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/akamai-open/AkamaiOPEN-edgegrid-node.git"
+    "url": "https://github.com/akamai/AkamaiOPEN-edgegrid-node.git"
   },
   "keywords": [
     "akamai",
