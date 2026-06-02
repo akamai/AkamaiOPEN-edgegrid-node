@@ -76,5 +76,4 @@ jobs:
       - name: Publish to npm
         # Uses a ternary operator to select 'rc' for prereleases, otherwise 'latest'
         run: |
-          npm publish dist-package/*.tgz \
-            --tag ${{ github.event.release.prerelease && 'rc' || 'latest' }}
+          npm publish ./dist-package/*.tgz --tag ${{ github.event.release.prerelease && 'rc' || 'latest' }}
