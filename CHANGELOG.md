@@ -1,6 +1,6 @@
 # Release notes
 
-## 4.0.4 (UNRELEASED)
+## 4.0.4 (Jul 2, 2026)
 
 ### Features/Enhancements
 
