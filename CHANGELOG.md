@@ -1,5 +1,21 @@
 # Release notes
 
+## X.X.X (X X, X)
+
+### Breaking Changes
+
+* Replaced `axios` with `undici` as the HTTP client. Removed `axios`, `follow-redirects`, and `proxy-from-env` dependencies.
+* The `response` object passed to the `send()` callback is now an undici `Dispatcher.ResponseData`. Use `response.statusCode` instead of the former `response.status`.
+* Binary responses (`responseType: 'arraybuffer'` or binary Content-Type) are now delivered as a native `Buffer` in the `body` (third) callback argument. Previously, binary data was accessible via the axios-specific `response.data` field; `body` was effectively unusable for binary content.
+* HTTP error responses (4xx, 5xx) now invoke `callback(err, null, null)` with an error object that includes `err.statusCode` and `err.headers`. Previously axios threw an error with `err.response.data`.
+* The `proxy` option in `auth()` is no longer supported. Configure proxy via the `HTTPS_PROXY` environment variable or by assigning `eg._dispatcher = new ProxyAgent(url)`.
+
+### Features/Enhancements
+
+* `application/octet-stream` responses are now automatically treated as binary and returned as a `Buffer`.
+* Proxy support via `HTTP_PROXY` / `HTTPS_PROXY` environment variables works automatically with no configuration required.
+* Updated TypeScript declarations: removed `axios` types, added `EdgeGridError` interface and `Dispatcher.ResponseData` response type.
+
 ## 4.0.4 (Jul 2, 2026)
 
 ### Features/Enhancements

@@ -2,7 +2,7 @@
 
 ![Build Status](https://github.com/akamai/AkamaiOPEN-edgegrid-node/actions/workflows/test.yml/badge.svg)
 
-This library implements an Authentication handler for the Akamai EdgeGrid Authentication scheme in Node.js for Node v20 and higher LTS versions.
+This library implements an Authentication handler for the Akamai EdgeGrid Authentication scheme in Node.js for Node v22 and higher LTS versions.
 
 You can find the most up-to-date package in [NPM](https://www.npmjs.com/package/akamai-edgegrid) under `akamai-edgegrid`.
 
@@ -154,12 +154,12 @@ const fs = require('fs');
 eg.auth({
   path : `/invoicing-api/v2/contracts/${contractId}/invoices/${invoiceNumber}/files/${fileName}`,
   method: 'GET',
-  responseType: 'arraybuffer', // Important
-}).send((err, response) => {
+  responseType: 'arraybuffer', // Important: instructs the library to return a Buffer
+}).send((err, response, body) => {
   if (err) {
     return console.log(err);
   }
-  fs.writeFile(`./${fileName}`, response.data, 'binary', (err) => {
+  fs.writeFile(`./${fileName}`, body, (err) => {
     if (err){
       return console.log(err);
     }
@@ -227,37 +227,33 @@ The library supports configurable logging through the `enableLogging()` method.
 
 ### Proxy
 
-To use edgegrid with proxy, you can configure it with one of these methods:
-
-- Add the `proxy` argument to the `EdgeGrid()` method.
-
-  ```javascript
-  eg.auth({
-    path : `/identity-management/v3/user-profile`,
-    method: 'GET',
-    proxy: {
-      host: 'my.proxy.com',
-      protocol: "https",
-      port: 3128,
-      auth: {
-        username: 'my-user',
-        password: 'my-password'
-      }
-    }
-  }).send((err, response) => {
-    if (err) {
-      return console.log(err);
-    }
-    console.log('Success!');
-    // Do something with the response
-  });
-  ```
+The library uses [`undici`](https://github.com/nodejs/undici)'s `EnvHttpProxyAgent` under the hood, which automatically reads the standard `HTTP_PROXY` and `HTTPS_PROXY` environment variables.
 
 - Set the `HTTPS_PROXY` environment variable.
 
   ```shell
   $ export HTTPS_PROXY=https://username:password@host:port
   $ node myapp.js
+  ```
+
+- Configure a proxy programmatically for a specific `EdgeGrid` instance using undici's `ProxyAgent`.
+
+  ```javascript
+  const { ProxyAgent } = require('undici');
+
+  var eg = new EdgeGrid({
+    path: '/path/to/.edgerc',
+    section: 'section-header'
+  });
+
+  // Override the default dispatcher with a per-instance proxy
+  eg._dispatcher = new ProxyAgent('https://username:password@my.proxy.com:3128');
+
+  eg.auth({ path: '/identity-management/v3/user-profile', method: 'GET' })
+    .send((err, response, body) => {
+      if (err) return console.log(err);
+      console.log(body);
+    });
   ```
 
 ## Reporting issues

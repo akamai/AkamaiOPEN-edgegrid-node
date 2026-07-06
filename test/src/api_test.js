@@ -1,6 +1,6 @@
 const assert = require('assert'),
-    nock = require('nock'),
     path = require('path'),
+    { MockAgent } = require('undici'),
     Api = require('../../src/api');
 
 const EdgeGrid = require("../../index");
@@ -429,18 +429,33 @@ describe('Api', function () {
     });
 
     describe('#send', function () {
+        // Each send() test gets a fresh MockAgent so requests are isolated.
+        let mockAgent;
+
+        beforeEach(function () {
+            mockAgent = new MockAgent();
+            mockAgent.disableNetConnect();
+            // Inject the mock dispatcher into this test's EdgeGrid instance
+            this.api._dispatcher = mockAgent;
+        });
+
+        afterEach(async function () {
+            await mockAgent.close();
+        });
 
         it('should be chainable', function () {
+            // Intercept the outgoing request so disableNetConnect does not throw
+            mockAgent.get('https://base.com')
+                .intercept({ path: '/foo', method: 'GET' })
+                .reply(200, '{}', { 'content-type': 'application/json' });
             assert.deepStrictEqual(this.api, this.api.auth({path: '/foo'}).send());
         });
 
         describe('when authentication is done with a simple options object specifying only a path', function () {
             beforeEach(function () {
-                nock('https://base.com')
-                    .get('/foo')
-                    .reply(200, {
-                        foo: 'bar'
-                    });
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(200, JSON.stringify({ foo: 'bar' }), { 'content-type': 'application/json' });
             });
 
             it('sends the HTTP GET request created by #auth', function (done) {
@@ -457,11 +472,9 @@ describe('Api', function () {
 
         describe('when authentication is done with a more complex options object specifying only a path', function () {
             beforeEach(function () {
-                nock('https://base.com')
-                    .post('/foo')
-                    .reply(200, {
-                        foo: 'bar'
-                    });
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'POST' })
+                    .reply(200, JSON.stringify({ foo: 'bar' }), { 'content-type': 'application/json' });
             });
 
             it('sends the HTTP created by #auth', function (done) {
@@ -479,45 +492,45 @@ describe('Api', function () {
 
         describe('when the initial request redirects', function () {
             it('correctly follows the redirect and re-signs the request', function (done) {
-                let authHeader;
-                nock('https://base.com')
-                    .get('/foo')
-                    .reply(function () {
-                        authHeader = this.req.headers["authorization"];
-                        return [
-                            302,
-                            '',
-                            {'location': 'https://base.com/bar'}
-                        ];
-                    })
-                    .get('/bar')
-                    .reply(function () {
-                        assert.notStrictEqual(this.req.headers["authorization"], authHeader);
-                        return [
-                            200,
-                            {someKey: 'value'}
-                        ];
+                // Build the auth for /foo and capture the Authorization header
+                this.api.auth({ path: '/foo' });
+                const firstAuthHeader = this.api.request.headers['Authorization'];
+
+                // 302 → /bar
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(302, '', { headers: { location: 'https://base.com/bar' } });
+
+                // Final destination
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/bar', method: 'GET' })
+                    .reply(200, JSON.stringify({ someKey: 'value' }), {
+                        headers: { 'content-type': 'application/json' }
                     });
 
-                this.api.auth({
-                    path: '/foo',
-                });
-
+                const self = this;
                 this.api.send(function (err, resp, body) {
+                    assert.strictEqual(err, null, err && err.message);
                     assert.strictEqual(JSON.parse(body).someKey, 'value');
+                    // auth() rebuilds headers on the same this.request object — the
+                    // Authorization for /bar must differ from the one for /foo.
+                    assert.notStrictEqual(
+                        self.api.request.headers['Authorization'],
+                        firstAuthHeader,
+                        'Authorization header must be re-signed after redirect'
+                    );
                     done();
                 });
             });
         });
+
         describe('when the initial request fails', function () {
             it('correctly handles the error in the callback', function (done) {
-                nock('https://base.com')
-                    .get('/foo')
-                    .replyWithError('something awful happened');
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .replyWithError(new Error('something awful happened'));
 
-                this.api.auth({
-                    path: '/foo',
-                });
+                this.api.auth({ path: '/foo' });
 
                 this.api.send(function (data) {
                     assert.strictEqual(data.message, 'something awful happened');
