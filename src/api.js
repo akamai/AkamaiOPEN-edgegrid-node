@@ -81,7 +81,8 @@ EdgeGrid.prototype.auth = function (req) {
  * @return EdgeGrid object (self)
  */
 EdgeGrid.prototype.send = function (callback) {
-    this._executeRequest(callback).catch(err => callback(err, null, null));
+    const cb = typeof callback === 'function' ? callback : () => {};
+    this._executeRequest(cb).catch(err => cb(err, null, null));
     return this;
 };
 
@@ -113,8 +114,15 @@ EdgeGrid.prototype._executeRequest = async function (callback) {
     logger.debug({ statusCode: response.statusCode }, 'Received response');
 
     if (helpers.isRedirect(response.statusCode)) {
-        const location = response.headers['location'];
-        await response.body.dump();   // free the TCP socket before opening a new connection
+        const rawLocation = response.headers['location'];
+        await response.body.dump();
+
+        if (!rawLocation) {
+            callback(new Error(`Redirect (${response.statusCode}) received without a Location header`), null, null);
+            return;
+        }
+
+        const location = Array.isArray(rawLocation) ? rawLocation[0] : rawLocation;
         await this._handleRedirect(location, callback);
         return;
     }
@@ -151,13 +159,20 @@ EdgeGrid.prototype._executeRequest = async function (callback) {
 /**
  * Handles an HTTP redirect by rebuilding the authorization for
  * the new URL and retrying the request.
+ * The caller is responsible for consuming (dump()) the redirect response body
+ * before invoking this method.
  *
  * @param  {string}   location  Value of the Location header from the redirect response.
  * @param  {Function} callback  Node-style callback(err, response, body).
  * @private
  */
 EdgeGrid.prototype._handleRedirect = async function (location, callback) {
-    const parsedUrl = new URL(location);
+    let parsedUrl;
+    try {
+        parsedUrl = new URL(location);
+    } catch {
+        parsedUrl = new URL(location, this.request.url);
+    }
 
     this.request.url = undefined;
     this.request.path = parsedUrl.pathname + parsedUrl.search;

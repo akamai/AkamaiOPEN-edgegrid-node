@@ -447,8 +447,31 @@ describe('Api', function () {
             // Intercept the outgoing request so disableNetConnect does not throw
             mockAgent.get('https://base.com')
                 .intercept({ path: '/foo', method: 'GET' })
-                .reply(200, '{}', { 'content-type': 'application/json' });
+                .reply(200, '{}', { headers: { 'content-type': 'application/json' } });
             assert.deepStrictEqual(this.api, this.api.auth({path: '/foo'}).send());
+        });
+
+        it('should not throw when called without a callback', function (done) {
+            // send() without a callback must not throw and must stay chainable.
+            // Errors and responses are silently swallowed by the no-op guard.
+            mockAgent.get('https://base.com')
+                .intercept({ path: '/foo', method: 'GET' })
+                .reply(200, '{}', { headers: { 'content-type': 'application/json' } });
+            assert.doesNotThrow(() => {
+                this.api.auth({ path: '/foo' }).send(); // no callback
+            });
+            // Give the async chain time to complete before the next test tears down the agent
+            setTimeout(done, 50);
+        });
+
+        it('should not throw when called with a non-function callback', function (done) {
+            mockAgent.get('https://base.com')
+                .intercept({ path: '/foo', method: 'GET' })
+                .reply(200, '{}', { headers: { 'content-type': 'application/json' } });
+            assert.doesNotThrow(() => {
+                this.api.auth({ path: '/foo' }).send(null);
+            });
+            setTimeout(done, 50);
         });
 
         describe('when authentication is done with a simple options object specifying only a path', function () {
@@ -519,6 +542,21 @@ describe('Api', function () {
                         firstAuthHeader,
                         'Authorization header must be re-signed after redirect'
                     );
+                    done();
+                });
+            });
+
+            it('calls back with an error when the redirect has no Location header', function (done) {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(302, '');  // no Location header
+
+                this.api.auth({ path: '/foo' });
+                this.api.send(function (err, resp, body) {
+                    assert.ok(err instanceof Error, 'err must be an Error');
+                    assert.ok(err.message.includes('Location'), 'error message must mention Location');
+                    assert.strictEqual(resp, null);
+                    assert.strictEqual(body, null);
                     done();
                 });
             });
