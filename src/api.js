@@ -77,7 +77,9 @@ EdgeGrid.prototype.auth = function (req) {
 /**
  * Sends the request and invokes the callback function.
  *
- * @param  {Function} callback The callback function.
+ * @param  {Function} [callback] Optional Node-style callback(err, response, body).
+ *                               If omitted or not a function, the call is fire-and-forget:
+ *                               the request is sent and any response or error is silently ignored.
  * @return EdgeGrid object (self)
  */
 EdgeGrid.prototype.send = function (callback) {
@@ -128,7 +130,8 @@ EdgeGrid.prototype._executeRequest = async function (callback) {
     }
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
-        const contentType = response.headers['content-type'] || '';
+        const rawContentType = response.headers['content-type'];
+        const contentType = Array.isArray(rawContentType) ? rawContentType[0] : (rawContentType || '');
         const isBinaryResponse =
             this.request['responseType'] === 'arraybuffer' ||
             contentType.includes('gzip') ||
