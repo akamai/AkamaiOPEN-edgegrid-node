@@ -460,8 +460,8 @@ describe('Api', function () {
             assert.doesNotThrow(() => {
                 this.api.auth({ path: '/foo' }).send(); // no callback
             });
-            // Give the async chain time to complete before the next test tears down the agent
-            setTimeout(done, 50);
+            // Yield to the event loop so the async chain completes before afterEach closes the MockAgent.
+            setImmediate(done);
         });
 
         it('should not throw when called with a non-function callback', function (done) {
@@ -471,7 +471,7 @@ describe('Api', function () {
             assert.doesNotThrow(() => {
                 this.api.auth({ path: '/foo' }).send(null);
             });
-            setTimeout(done, 50);
+            setImmediate(done);
         });
 
         describe('when authentication is done with a simple options object specifying only a path', function () {
