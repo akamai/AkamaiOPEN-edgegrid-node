@@ -88,7 +88,7 @@ EdgeGrid.prototype.send = function (callback) {
     const cb = function (...args) {
         if (called) { return; }
         called = true;
-        try { raw(...args); } catch (_) { /* swallow: caller's problem, not ours */ }
+        try { raw(...args); } catch (_) { /* swallow */ }
     };
     this._executeRequest(cb).catch(err => cb(err, null, null));
     return this;
