@@ -444,24 +444,13 @@ describe('Api', function () {
         });
 
         it('should be chainable', function () {
-            // Intercept the outgoing request so disableNetConnect does not throw
+            // Intercept the outgoing request so disableNetConnect does not throw.
+            // send() is intentionally called here without a callback — the no-op guard
+            // in send() swallows the response silently, which is the expected behavior.
             mockAgent.get('https://base.com')
                 .intercept({ path: '/foo', method: 'GET' })
                 .reply(200, '{}', { headers: { 'content-type': 'application/json' } });
             assert.deepStrictEqual(this.api, this.api.auth({path: '/foo'}).send());
-        });
-
-        it('should not throw when called without a callback', function (done) {
-            // send() without a callback must not throw and must stay chainable.
-            // Errors and responses are silently swallowed by the no-op guard.
-            mockAgent.get('https://base.com')
-                .intercept({ path: '/foo', method: 'GET' })
-                .reply(200, '{}', { headers: { 'content-type': 'application/json' } });
-            assert.doesNotThrow(() => {
-                this.api.auth({ path: '/foo' }).send(); // no callback
-            });
-            // Yield to the event loop so the async chain completes before afterEach closes the MockAgent.
-            setImmediate(done);
         });
 
         it('should not throw when called with a non-function callback', function (done) {
@@ -474,11 +463,29 @@ describe('Api', function () {
             setImmediate(done);
         });
 
+        it('invokes callback with err-first signature matching real consumer usage', function (done) {
+            mockAgent.get('https://base.com')
+                .intercept({ path: '/foo', method: 'GET' })
+                .reply(200, JSON.stringify({ status: 'active', id: 42 }), {
+                    headers: { 'content-type': 'application/json' }
+                });
+
+            this.api.auth({ path: '/foo' });
+            this.api.send(function (err, response, body) {
+                if (err) { return done(err); }
+                assert.strictEqual(response.statusCode, 200);
+                const data = JSON.parse(body);
+                assert.strictEqual(data.status, 'active');
+                assert.strictEqual(data.id, 42);
+                done();
+            });
+        });
+
         describe('when authentication is done with a simple options object specifying only a path', function () {
             beforeEach(function () {
                 mockAgent.get('https://base.com')
                     .intercept({ path: '/foo', method: 'GET' })
-                    .reply(200, JSON.stringify({ foo: 'bar' }), { 'content-type': 'application/json' });
+                    .reply(200, JSON.stringify({ foo: 'bar' }), { headers: { 'content-type': 'application/json' } });
             });
 
             it('sends the HTTP GET request created by #auth', function (done) {
@@ -497,7 +504,7 @@ describe('Api', function () {
             beforeEach(function () {
                 mockAgent.get('https://base.com')
                     .intercept({ path: '/foo', method: 'POST' })
-                    .reply(200, JSON.stringify({ foo: 'bar' }), { 'content-type': 'application/json' });
+                    .reply(200, JSON.stringify({ foo: 'bar' }), { headers: { 'content-type': 'application/json' } });
             });
 
             it('sends the HTTP created by #auth', function (done) {
@@ -508,6 +515,50 @@ describe('Api', function () {
 
                 this.api.send(function (err, resp, body) {
                     assert.strictEqual(JSON.parse(body).foo, 'bar');
+                    done();
+                });
+            });
+        });
+
+        describe('when the response has a binary content type', function () {
+            it('returns the body as a Buffer for application/gzip', function (done) {
+                // Real gzip stream starts with the magic bytes 0x1f 0x8b.
+                const gzipMagic = Buffer.from([0x1f, 0x8b, 0x08, 0x00]);
+
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/archive.gz', method: 'GET' })
+                    .reply(200, gzipMagic, { headers: { 'content-type': 'application/gzip' } });
+
+                this.api.auth({ path: '/archive.gz' });
+                this.api.send(function (err, response, body) {
+                    assert.strictEqual(err, null);
+                    assert.ok(Buffer.isBuffer(body), 'body must be a Buffer, not a string');
+                    assert.strictEqual(body.length, gzipMagic.length);
+                    // Verify the gzip magic bytes are intact — proves no UTF-8 mangling occurred.
+                    assert.strictEqual(body[0], 0x1f);
+                    assert.strictEqual(body[1], 0x8b);
+                    done();
+                });
+            });
+
+            it('returns the body as a Buffer when responseType is arraybuffer', function (done) {
+                const binaryPayload = Buffer.from([0x25, 0x50, 0x44, 0x46]); // %PDF
+
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/report.pdf', method: 'GET' })
+                    .reply(200, binaryPayload, { headers: { 'content-type': 'application/pdf' } });
+
+                // application/pdf is not in the auto-detect list, but responseType: 'arraybuffer'
+                // forces binary mode regardless of Content-Type.
+                this.api.auth({
+                    path: '/report.pdf',
+                    headers: { 'Accept': 'application/gzip' } // triggers responseType: 'arraybuffer'
+                });
+                this.api.send(function (err, response, body) {
+                    assert.strictEqual(err, null);
+                    assert.ok(Buffer.isBuffer(body), 'body must be a Buffer when responseType is arraybuffer');
+                    assert.strictEqual(body[0], 0x25); // %
+                    assert.strictEqual(body[1], 0x50); // P
                     done();
                 });
             });
@@ -535,10 +586,13 @@ describe('Api', function () {
                 this.api.send(function (err, resp, body) {
                     assert.strictEqual(err, null, err && err.message);
                     assert.strictEqual(JSON.parse(body).someKey, 'value');
-                    // auth() rebuilds headers on the same this.request object — the
-                    // Authorization for /bar must differ from the one for /foo.
+                    // auth() rebuilds headers on the same this.request object — verify that:
+                    // (a) the Authorization header is actually present after redirect, AND
+                    // (b) it differs from the original, proving re-signing happened.
+                    const newAuthHeader = self.api.request.headers['Authorization'];
+                    assert.ok(newAuthHeader, 'Authorization header must be present after redirect');
                     assert.notStrictEqual(
-                        self.api.request.headers['Authorization'],
+                        newAuthHeader,
                         firstAuthHeader,
                         'Authorization header must be re-signed after redirect'
                     );

@@ -83,7 +83,13 @@ EdgeGrid.prototype.auth = function (req) {
  * @return EdgeGrid object (self)
  */
 EdgeGrid.prototype.send = function (callback) {
-    const cb = typeof callback === 'function' ? callback : () => {};
+    const raw = typeof callback === 'function' ? callback : () => {};
+    let called = false;
+    const cb = function (...args) {
+        if (called) { return; }
+        called = true;
+        try { raw(...args); } catch (_) { /* swallow: caller's problem, not ours */ }
+    };
     this._executeRequest(cb).catch(err => cb(err, null, null));
     return this;
 };
