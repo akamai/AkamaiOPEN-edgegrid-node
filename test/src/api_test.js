@@ -1,6 +1,6 @@
 const assert = require('assert'),
-    nock = require('nock'),
     path = require('path'),
+    { MockAgent } = require('undici'),
     Api = require('../../src/api');
 
 const EdgeGrid = require("../../index");
@@ -429,100 +429,228 @@ describe('Api', function () {
     });
 
     describe('#send', function () {
+        // Each send() test gets a fresh MockAgent so requests are isolated.
+        let mockAgent;
 
-        it('should be chainable', function () {
-            assert.deepStrictEqual(this.api, this.api.auth({path: '/foo'}).send());
+        beforeEach(function () {
+            mockAgent = new MockAgent();
+            mockAgent.disableNetConnect();
+            this.api._dispatcher = mockAgent;
         });
 
-        describe('when authentication is done with a simple options object specifying only a path', function () {
-            beforeEach(function () {
-                nock('https://base.com')
-                    .get('/foo')
-                    .reply(200, {
-                        foo: 'bar'
+        afterEach(async function () {
+            await mockAgent.close();
+        });
+
+        it('returns a Promise', function () {
+            mockAgent.get('https://base.com')
+                .intercept({ path: '/foo', method: 'GET' })
+                .reply(200, '{}', { headers: { 'content-type': 'application/json' } });
+
+            const result = this.api.auth({ path: '/foo' }).send();
+            assert.ok(result instanceof Promise, 'send() must return a Promise');
+            // Return the Promise so Mocha marks the test as failed if it rejects.
+            return result;
+        });
+
+        it('resolves with { response, body } on a 2xx response', async function () {
+            mockAgent.get('https://base.com')
+                .intercept({ path: '/foo', method: 'GET' })
+                .reply(200, JSON.stringify({ status: 'active', id: 42 }), {
+                    headers: { 'content-type': 'application/json' }
+                });
+
+            const { response, body } = await this.api.auth({ path: '/foo' }).send();
+            assert.strictEqual(response.statusCode, 200);
+            const data = JSON.parse(body);
+            assert.strictEqual(data.status, 'active');
+            assert.strictEqual(data.id, 42);
+        });
+
+        describe('when authentication is done with a simple GET request', function () {
+            it('resolves with the response body', async function () {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(200, JSON.stringify({ foo: 'bar' }), {
+                        headers: { 'content-type': 'application/json' }
                     });
-            });
 
-            it('sends the HTTP GET request created by #auth', function (done) {
-                this.api.auth({
-                    path: '/foo'
-                });
-
-                this.api.send(function (err, resp, body) {
-                    assert.strictEqual(JSON.parse(body).foo, 'bar');
-                    done();
-                });
+                const { response, body } = await this.api.auth({ path: '/foo' }).send();
+                assert.strictEqual(response.statusCode, 200);
+                assert.strictEqual(JSON.parse(body).foo, 'bar');
             });
         });
 
-        describe('when authentication is done with a more complex options object specifying only a path', function () {
-            beforeEach(function () {
-                nock('https://base.com')
-                    .post('/foo')
-                    .reply(200, {
-                        foo: 'bar'
+        describe('when authentication is done with a POST request', function () {
+            it('resolves with the response body', async function () {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'POST' })
+                    .reply(200, JSON.stringify({ foo: 'bar' }), {
+                        headers: { 'content-type': 'application/json' }
                     });
+
+                const { response, body } = await this.api.auth({ path: '/foo', method: 'POST' }).send();
+                assert.strictEqual(response.statusCode, 200);
+                assert.strictEqual(JSON.parse(body).foo, 'bar');
+            });
+        });
+
+        describe('when the response has a binary content type', function () {
+            it('resolves with a Buffer for application/gzip', async function () {
+                // Real gzip stream starts with magic bytes 0x1f 0x8b.
+                const gzipMagic = Buffer.from([0x1f, 0x8b, 0x08, 0x00]);
+
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/archive.gz', method: 'GET' })
+                    .reply(200, gzipMagic, { headers: { 'content-type': 'application/gzip' } });
+
+                const { body } = await this.api.auth({ path: '/archive.gz' }).send();
+                assert.ok(Buffer.isBuffer(body), 'body must be a Buffer, not a string');
+                assert.strictEqual(body.length, gzipMagic.length);
+                // Verify gzip magic bytes are intact — no UTF-8 mangling occurred.
+                assert.strictEqual(body[0], 0x1f);
+                assert.strictEqual(body[1], 0x8b);
             });
 
-            it('sends the HTTP created by #auth', function (done) {
-                this.api.auth({
-                    path: '/foo',
-                    method: 'POST'
-                });
+            it('resolves with a Buffer when responseType is arraybuffer', async function () {
+                // application/pdf is not in the auto-detect list but responseType: 'arraybuffer'
+                // forces binary mode regardless of Content-Type.
+                const binaryPayload = Buffer.from([0x25, 0x50, 0x44, 0x46]); // %PDF
 
-                this.api.send(function (err, resp, body) {
-                    assert.strictEqual(JSON.parse(body).foo, 'bar');
-                    done();
-                });
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/report.pdf', method: 'GET' })
+                    .reply(200, binaryPayload, { headers: { 'content-type': 'application/pdf' } });
+
+                const { body } = await this.api.auth({
+                    path: '/report.pdf',
+                    headers: { 'Accept': 'application/gzip' } // triggers responseType: 'arraybuffer'
+                }).send();
+                assert.ok(Buffer.isBuffer(body), 'body must be a Buffer when responseType is arraybuffer');
+                assert.strictEqual(body[0], 0x25); // %
+                assert.strictEqual(body[1], 0x50); // P
             });
         });
 
         describe('when the initial request redirects', function () {
-            it('correctly follows the redirect and re-signs the request', function (done) {
-                let authHeader;
-                nock('https://base.com')
-                    .get('/foo')
-                    .reply(function () {
-                        authHeader = this.req.headers["authorization"];
-                        return [
-                            302,
-                            '',
-                            {'location': 'https://base.com/bar'}
-                        ];
-                    })
-                    .get('/bar')
-                    .reply(function () {
-                        assert.notStrictEqual(this.req.headers["authorization"], authHeader);
-                        return [
-                            200,
-                            {someKey: 'value'}
-                        ];
+            it('correctly follows the redirect and re-signs the request', async function () {
+                this.api.auth({ path: '/foo' });
+                const firstAuthHeader = this.api.request.headers['Authorization'];
+
+                // 302 → /bar
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(302, '', { headers: { location: 'https://base.com/bar' } });
+
+                // Final destination
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/bar', method: 'GET' })
+                    .reply(200, JSON.stringify({ someKey: 'value' }), {
+                        headers: { 'content-type': 'application/json' }
                     });
 
-                this.api.auth({
-                    path: '/foo',
-                });
+                const { response, body } = await this.api.send();
+                assert.strictEqual(response.statusCode, 200);
+                assert.strictEqual(JSON.parse(body).someKey, 'value');
+                // Verify (a) header is present AND (b) differs from original —
+                // notStrictEqual alone would pass vacuously for undefined.
+                const newAuthHeader = this.api.request.headers['Authorization'];
+                assert.ok(newAuthHeader, 'Authorization header must be present after redirect');
+                assert.notStrictEqual(newAuthHeader, firstAuthHeader,
+                    'Authorization header must be re-signed after redirect');
+            });
 
-                this.api.send(function (err, resp, body) {
-                    assert.strictEqual(JSON.parse(body).someKey, 'value');
+            it('rejects when the redirect has no Location header', async function () {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(302, ''); // no Location header
+
+                this.api.auth({ path: '/foo' });
+                await assert.rejects(
+                    () => this.api.send(),
+                    (err) => {
+                        assert.ok(err instanceof Error);
+                        assert.ok(err.message.includes('Location'));
+                        return true;
+                    }
+                );
+            });
+        });
+
+        describe('when the request fails with an HTTP error', function () {
+            it('rejects with an error containing statusCode and headers', async function () {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(401, 'Unauthorized', { headers: { 'www-authenticate': 'Bearer' } });
+
+                this.api.auth({ path: '/foo' });
+                await assert.rejects(
+                    () => this.api.send(),
+                    (err) => {
+                        assert.strictEqual(err.statusCode, 401);
+                        assert.ok(err.headers, 'err.headers must be present');
+                        assert.ok(err.response, 'err.response must be present');
+                        return true;
+                    }
+                );
+            });
+        });
+
+        describe('when a network error occurs', function () {
+            it('rejects with the network error', async function () {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .replyWithError(new Error('something awful happened'));
+
+                this.api.auth({ path: '/foo' });
+                await assert.rejects(
+                    () => this.api.send(),
+                    { message: 'something awful happened' }
+                );
+            });
+        });
+
+        describe('when called with a callback (compatibility mode)', function () {
+            it('invokes the callback with (null, response, body) on success', function (done) {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(200, JSON.stringify({ ok: true }), {
+                        headers: { 'content-type': 'application/json' }
+                    });
+
+                this.api.auth({ path: '/foo' });
+                this.api.send(function (err, response, body) {
+                    assert.strictEqual(err, null);
+                    assert.strictEqual(response.statusCode, 200);
+                    assert.strictEqual(JSON.parse(body).ok, true);
                     done();
                 });
             });
-        });
-        describe('when the initial request fails', function () {
-            it('correctly handles the error in the callback', function (done) {
-                nock('https://base.com')
-                    .get('/foo')
-                    .replyWithError('something awful happened');
 
-                this.api.auth({
-                    path: '/foo',
-                });
+            it('invokes the callback with (err, null, null) on HTTP error', function (done) {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(403, 'Forbidden', { headers: {} });
 
-                this.api.send(function (data) {
-                    assert.strictEqual(data.message, 'something awful happened');
+                this.api.auth({ path: '/foo' });
+                this.api.send(function (err, response, body) {
+                    assert.ok(err instanceof Error);
+                    assert.strictEqual(err.statusCode, 403);
+                    assert.strictEqual(response, null);
+                    assert.strictEqual(body, null);
                     done();
                 });
+            });
+
+            it('returns this for chaining when a callback is provided', function (done) {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(200, '{}', { headers: { 'content-type': 'application/json' } });
+
+                // send() must return `this` (the EdgeGrid instance) for chaining,
+                // not a Promise, when a callback is provided.
+                const instance = this.api.auth({ path: '/foo' });
+                const result = instance.send(() => { done(); });
+                assert.strictEqual(result, instance);
             });
         });
 
