@@ -435,7 +435,6 @@ describe('Api', function () {
         beforeEach(function () {
             mockAgent = new MockAgent();
             mockAgent.disableNetConnect();
-            // Inject the mock dispatcher into this test's EdgeGrid instance
             this.api._dispatcher = mockAgent;
         });
 
@@ -443,130 +442,97 @@ describe('Api', function () {
             await mockAgent.close();
         });
 
-        it('should be chainable', function () {
-            // Intercept the outgoing request so disableNetConnect does not throw.
-            // send() is intentionally called here without a callback — the no-op guard
-            // in send() swallows the response silently, which is the expected behavior.
+        it('returns a Promise', function () {
             mockAgent.get('https://base.com')
                 .intercept({ path: '/foo', method: 'GET' })
                 .reply(200, '{}', { headers: { 'content-type': 'application/json' } });
-            assert.deepStrictEqual(this.api, this.api.auth({path: '/foo'}).send());
+
+            const result = this.api.auth({ path: '/foo' }).send();
+            assert.ok(result instanceof Promise, 'send() must return a Promise');
+            // Return the Promise so Mocha marks the test as failed if it rejects.
+            return result;
         });
 
-        it('should not throw when called with a non-function callback', function (done) {
-            mockAgent.get('https://base.com')
-                .intercept({ path: '/foo', method: 'GET' })
-                .reply(200, '{}', { headers: { 'content-type': 'application/json' } });
-            assert.doesNotThrow(() => {
-                this.api.auth({ path: '/foo' }).send(null);
-            });
-            setImmediate(done);
-        });
-
-        it('invokes callback with err-first signature matching real consumer usage', function (done) {
+        it('resolves with { response, body } on a 2xx response', async function () {
             mockAgent.get('https://base.com')
                 .intercept({ path: '/foo', method: 'GET' })
                 .reply(200, JSON.stringify({ status: 'active', id: 42 }), {
                     headers: { 'content-type': 'application/json' }
                 });
 
-            this.api.auth({ path: '/foo' });
-            this.api.send(function (err, response, body) {
-                if (err) { return done(err); }
-                assert.strictEqual(response.statusCode, 200);
-                const data = JSON.parse(body);
-                assert.strictEqual(data.status, 'active');
-                assert.strictEqual(data.id, 42);
-                done();
-            });
+            const { response, body } = await this.api.auth({ path: '/foo' }).send();
+            assert.strictEqual(response.statusCode, 200);
+            const data = JSON.parse(body);
+            assert.strictEqual(data.status, 'active');
+            assert.strictEqual(data.id, 42);
         });
 
-        describe('when authentication is done with a simple options object specifying only a path', function () {
-            beforeEach(function () {
+        describe('when authentication is done with a simple GET request', function () {
+            it('resolves with the response body', async function () {
                 mockAgent.get('https://base.com')
                     .intercept({ path: '/foo', method: 'GET' })
-                    .reply(200, JSON.stringify({ foo: 'bar' }), { headers: { 'content-type': 'application/json' } });
-            });
+                    .reply(200, JSON.stringify({ foo: 'bar' }), {
+                        headers: { 'content-type': 'application/json' }
+                    });
 
-            it('sends the HTTP GET request created by #auth', function (done) {
-                this.api.auth({
-                    path: '/foo'
-                });
-
-                this.api.send(function (err, resp, body) {
-                    assert.strictEqual(JSON.parse(body).foo, 'bar');
-                    done();
-                });
+                const { response, body } = await this.api.auth({ path: '/foo' }).send();
+                assert.strictEqual(response.statusCode, 200);
+                assert.strictEqual(JSON.parse(body).foo, 'bar');
             });
         });
 
-        describe('when authentication is done with a more complex options object specifying only a path', function () {
-            beforeEach(function () {
+        describe('when authentication is done with a POST request', function () {
+            it('resolves with the response body', async function () {
                 mockAgent.get('https://base.com')
                     .intercept({ path: '/foo', method: 'POST' })
-                    .reply(200, JSON.stringify({ foo: 'bar' }), { headers: { 'content-type': 'application/json' } });
-            });
+                    .reply(200, JSON.stringify({ foo: 'bar' }), {
+                        headers: { 'content-type': 'application/json' }
+                    });
 
-            it('sends the HTTP created by #auth', function (done) {
-                this.api.auth({
-                    path: '/foo',
-                    method: 'POST'
-                });
-
-                this.api.send(function (err, resp, body) {
-                    assert.strictEqual(JSON.parse(body).foo, 'bar');
-                    done();
-                });
+                const { response, body } = await this.api.auth({ path: '/foo', method: 'POST' }).send();
+                assert.strictEqual(response.statusCode, 200);
+                assert.strictEqual(JSON.parse(body).foo, 'bar');
             });
         });
 
         describe('when the response has a binary content type', function () {
-            it('returns the body as a Buffer for application/gzip', function (done) {
-                // Real gzip stream starts with the magic bytes 0x1f 0x8b.
+            it('resolves with a Buffer for application/gzip', async function () {
+                // Real gzip stream starts with magic bytes 0x1f 0x8b.
                 const gzipMagic = Buffer.from([0x1f, 0x8b, 0x08, 0x00]);
 
                 mockAgent.get('https://base.com')
                     .intercept({ path: '/archive.gz', method: 'GET' })
                     .reply(200, gzipMagic, { headers: { 'content-type': 'application/gzip' } });
 
-                this.api.auth({ path: '/archive.gz' });
-                this.api.send(function (err, response, body) {
-                    assert.strictEqual(err, null);
-                    assert.ok(Buffer.isBuffer(body), 'body must be a Buffer, not a string');
-                    assert.strictEqual(body.length, gzipMagic.length);
-                    // Verify the gzip magic bytes are intact — proves no UTF-8 mangling occurred.
-                    assert.strictEqual(body[0], 0x1f);
-                    assert.strictEqual(body[1], 0x8b);
-                    done();
-                });
+                const { body } = await this.api.auth({ path: '/archive.gz' }).send();
+                assert.ok(Buffer.isBuffer(body), 'body must be a Buffer, not a string');
+                assert.strictEqual(body.length, gzipMagic.length);
+                // Verify gzip magic bytes are intact — no UTF-8 mangling occurred.
+                assert.strictEqual(body[0], 0x1f);
+                assert.strictEqual(body[1], 0x8b);
             });
 
-            it('returns the body as a Buffer when responseType is arraybuffer', function (done) {
+            it('resolves with a Buffer when responseType is arraybuffer', async function () {
+                // application/pdf is not in the auto-detect list but responseType: 'arraybuffer'
+                // forces binary mode regardless of Content-Type.
                 const binaryPayload = Buffer.from([0x25, 0x50, 0x44, 0x46]); // %PDF
 
                 mockAgent.get('https://base.com')
                     .intercept({ path: '/report.pdf', method: 'GET' })
                     .reply(200, binaryPayload, { headers: { 'content-type': 'application/pdf' } });
 
-                // application/pdf is not in the auto-detect list, but responseType: 'arraybuffer'
-                // forces binary mode regardless of Content-Type.
-                this.api.auth({
+                const { body } = await this.api.auth({
                     path: '/report.pdf',
                     headers: { 'Accept': 'application/gzip' } // triggers responseType: 'arraybuffer'
-                });
-                this.api.send(function (err, response, body) {
-                    assert.strictEqual(err, null);
-                    assert.ok(Buffer.isBuffer(body), 'body must be a Buffer when responseType is arraybuffer');
-                    assert.strictEqual(body[0], 0x25); // %
-                    assert.strictEqual(body[1], 0x50); // P
-                    done();
-                });
+                }).send();
+                assert.ok(Buffer.isBuffer(body), 'body must be a Buffer when responseType is arraybuffer');
+                assert.strictEqual(body[0], 0x25); // %
+                assert.strictEqual(body[1], 0x50); // P
             });
         });
 
         describe('when the initial request redirects', function () {
-            it('correctly follows the redirect and re-signs the request', function (done) {
-                // Build the auth for /foo and capture the Authorization header
+            it('correctly follows the redirect and re-signs the request', async function () {
                 this.api.auth({ path: '/foo' });
                 const firstAuthHeader = this.api.request.headers['Authorization'];
 
@@ -582,52 +548,64 @@ describe('Api', function () {
                         headers: { 'content-type': 'application/json' }
                     });
 
-                const self = this;
-                this.api.send(function (err, resp, body) {
-                    assert.strictEqual(err, null, err && err.message);
-                    assert.strictEqual(JSON.parse(body).someKey, 'value');
-                    // auth() rebuilds headers on the same this.request object — verify that:
-                    // (a) the Authorization header is actually present after redirect, AND
-                    // (b) it differs from the original, proving re-signing happened.
-                    const newAuthHeader = self.api.request.headers['Authorization'];
-                    assert.ok(newAuthHeader, 'Authorization header must be present after redirect');
-                    assert.notStrictEqual(
-                        newAuthHeader,
-                        firstAuthHeader,
-                        'Authorization header must be re-signed after redirect'
-                    );
-                    done();
-                });
+                const { response, body } = await this.api.send();
+                assert.strictEqual(response.statusCode, 200);
+                assert.strictEqual(JSON.parse(body).someKey, 'value');
+                // Verify (a) header is present AND (b) differs from original —
+                // notStrictEqual alone would pass vacuously for undefined.
+                const newAuthHeader = this.api.request.headers['Authorization'];
+                assert.ok(newAuthHeader, 'Authorization header must be present after redirect');
+                assert.notStrictEqual(newAuthHeader, firstAuthHeader,
+                    'Authorization header must be re-signed after redirect');
             });
 
-            it('calls back with an error when the redirect has no Location header', function (done) {
+            it('rejects when the redirect has no Location header', async function () {
                 mockAgent.get('https://base.com')
                     .intercept({ path: '/foo', method: 'GET' })
-                    .reply(302, '');  // no Location header
+                    .reply(302, ''); // no Location header
 
                 this.api.auth({ path: '/foo' });
-                this.api.send(function (err, resp, body) {
-                    assert.ok(err instanceof Error, 'err must be an Error');
-                    assert.ok(err.message.includes('Location'), 'error message must mention Location');
-                    assert.strictEqual(resp, null);
-                    assert.strictEqual(body, null);
-                    done();
-                });
+                await assert.rejects(
+                    () => this.api.send(),
+                    (err) => {
+                        assert.ok(err instanceof Error);
+                        assert.ok(err.message.includes('Location'));
+                        return true;
+                    }
+                );
             });
         });
 
-        describe('when the initial request fails', function () {
-            it('correctly handles the error in the callback', function (done) {
+        describe('when the request fails with an HTTP error', function () {
+            it('rejects with an error containing statusCode and headers', async function () {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(401, 'Unauthorized', { headers: { 'www-authenticate': 'Bearer' } });
+
+                this.api.auth({ path: '/foo' });
+                await assert.rejects(
+                    () => this.api.send(),
+                    (err) => {
+                        assert.strictEqual(err.statusCode, 401);
+                        assert.ok(err.headers, 'err.headers must be present');
+                        assert.ok(err.response, 'err.response must be present');
+                        return true;
+                    }
+                );
+            });
+        });
+
+        describe('when a network error occurs', function () {
+            it('rejects with the network error', async function () {
                 mockAgent.get('https://base.com')
                     .intercept({ path: '/foo', method: 'GET' })
                     .replyWithError(new Error('something awful happened'));
 
                 this.api.auth({ path: '/foo' });
-
-                this.api.send(function (data) {
-                    assert.strictEqual(data.message, 'something awful happened');
-                    done();
-                });
+                await assert.rejects(
+                    () => this.api.send(),
+                    { message: 'something awful happened' }
+                );
             });
         });
 

@@ -5,16 +5,19 @@
 ### Breaking Changes
 
 * Replaced `axios` with `undici` as the HTTP client. Removed `axios`, `follow-redirects`, and `proxy-from-env` dependencies.
-* The `response` object passed to the `send()` callback is now an undici `Dispatcher.ResponseData`. Use `response.statusCode` instead of the former `response.status`.
-* Binary responses (`responseType: 'arraybuffer'` or binary Content-Type) are now delivered as a native `Buffer` in the `body` (third) callback argument. Previously, binary data was accessible via the axios-specific `response.data` field; `body` was effectively unusable for binary content.
-* HTTP error responses (4xx, 5xx) now invoke `callback(err, null, null)` with an error object that includes `err.statusCode` and `err.headers`. Previously axios threw an error with `err.response.data`.
+* `send()` now returns a `Promise<{ response, body }>` instead of accepting a Node-style callback. Use `await eg.auth(req).send()` or `.then()`/`.catch()`.
+* The `response` object is now an undici `Dispatcher.ResponseData`. Use `response.statusCode` instead of the former `response.status`.
+* HTTP errors (4xx, 5xx) now reject the Promise with an `EdgeGridError` that includes `err.statusCode` and `err.headers`. Previously axios threw with `err.response.data`.
+* Binary responses (`responseType: 'arraybuffer'` or binary Content-Type) now resolve with a native `Buffer` as `body`. Previously binary data was accessible via axios-specific `response.data`.
 * The `proxy` option in `auth()` is no longer supported. Configure proxy via the `HTTPS_PROXY` environment variable or by assigning `eg._dispatcher = new ProxyAgent(url)`.
+* Minimum supported Node.js version is now **v22**.
 
 ### Features/Enhancements
 
-* `application/octet-stream` responses are now automatically treated as binary and returned as a `Buffer`.
+* `application/octet-stream` responses are automatically treated as binary and resolved as a `Buffer`.
 * Proxy support via `HTTP_PROXY` / `HTTPS_PROXY` environment variables works automatically with no configuration required.
-* Updated TypeScript declarations: removed `axios` types, added `EdgeGridError` interface and `Dispatcher.ResponseData` response type.
+* Updated TypeScript declarations: `send()` typed as `Promise<SendResult>`, added `EdgeGridError` and `SendResult` interfaces.
+
 
 ## 4.0.4 (Jul 2, 2026)
 

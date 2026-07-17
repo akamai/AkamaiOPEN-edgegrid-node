@@ -1,19 +1,5 @@
 import type { Dispatcher } from 'undici';
 
-/**
- * Error object passed to the callback when a request fails.
- * In addition to the standard Error fields, it carries the HTTP status code,
- * the response headers, and the full undici ResponseData for advanced consumers.
- */
-interface EdgeGridError extends Error {
-    /** HTTP status code returned by the server (e.g. 401, 500). */
-    statusCode?: number;
-    /** Response headers from the server. */
-    headers?: Record<string, string | string[]>;
-    /** Full undici ResponseData (body already consumed via dump()). */
-    response?: Dispatcher.ResponseData;
-}
-
 declare class EdgeGrid {
     constructor(clientTokenOrOptions: string | object,
                 clientSecret?: string,
@@ -24,23 +10,15 @@ declare class EdgeGrid {
 
     request: object;
     config: object;
+    _dispatcher: Dispatcher | null | undefined;
 
     /**
-     * Sends the request and invokes the callback function.
+     * Executes the request prepared by auth() and returns a Promise.
      *
-     * On success (2xx) calls callback(null, response, body).
-     * On network error or HTTP error calls callback(err, null, null).
-     *
-     * @param callback Node-style callback receiving (error, response, body).
-     *                 `body` is a string for text/JSON responses and a Buffer
-     *                 for binary responses (gzip, tar, octet-stream).
-     * @return EdgeGrid object (self)
+     * Resolves with { response, body } on a 2xx response.
+     * Rejects with an EdgeGrid.EdgeGridError on HTTP errors (4xx/5xx) or network failures.
      */
-    send(callback: (
-        error: EdgeGridError | null,
-        response?: Dispatcher.ResponseData | null,
-        body?: string | Buffer | null
-    ) => void): EdgeGrid;
+    send(): Promise<EdgeGrid.SendResult>;
 
     /**
      * Builds the request using the properties of the local config Object.
@@ -50,7 +28,34 @@ declare class EdgeGrid {
      *            that will be included in the signature.
      * @return EdgeGrid object (self)
      */
-    auth(req: object): EdgeGrid;
+    auth(req: object): this;
+
+    enableLogging(option: boolean | object): this;
+}
+
+declare namespace EdgeGrid {
+    /** Error thrown (Promise rejection) for HTTP errors (4xx, 5xx) or network failures. */
+    export interface EdgeGridError extends Error {
+        /** HTTP status code. Absent for network-level errors (e.g. connection refused). */
+        statusCode?: number;
+        /** Response headers. Present only for HTTP errors, not network errors. */
+        headers?: Record<string, string | string[]>;
+        /** Full undici ResponseData for advanced consumers. Present only for HTTP errors. */
+        response?: Dispatcher.ResponseData;
+    }
+
+    /** Resolved value of the Promise returned by send(). */
+    export interface SendResult {
+        /** The undici response object (statusCode, headers, …). */
+        response: Dispatcher.ResponseData;
+        /**
+         * Response body.
+         * - string  for text/JSON responses
+         * - Buffer  for binary responses (application/gzip, application/tar+gzip,
+         *           application/octet-stream, or when responseType: 'arraybuffer' is set)
+         */
+        body: string | Buffer;
+    }
 }
 
 export = EdgeGrid;

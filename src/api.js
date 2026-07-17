@@ -75,37 +75,35 @@ EdgeGrid.prototype.auth = function (req) {
 };
 
 /**
- * Sends the request and invokes the callback function.
+ * Sends the request and returns a Promise that resolves with { response, body }.
  *
- * @param  {Function} [callback] Optional Node-style callback(err, response, body).
- *                               If omitted or not a function, the call is fire-and-forget:
- *                               the request is sent and any response or error is silently ignored.
- * @return EdgeGrid object (self)
+ * On success (2xx) the Promise resolves with:
+ *   - response  {Dispatcher.ResponseData}  The undici response object (statusCode, headers, …)
+ *   - body      {string|Buffer}            Text for JSON/plain responses; Buffer for binary ones.
+ *
+ * On failure the Promise rejects with an EdgeGridError that carries:
+ *   - err.statusCode  {number}             HTTP status code (absent for network errors)
+ *   - err.headers     {object}             Response headers
+ *   - err.response    {Dispatcher.ResponseData}  Full undici response for advanced consumers
+ *
+ * @return {Promise<{response: Dispatcher.ResponseData, body: string|Buffer}>}
  */
-EdgeGrid.prototype.send = function (callback) {
-    const raw = typeof callback === 'function' ? callback : () => {};
-    let called = false;
-    const cb = function (...args) {
-        if (called) { return; }
-        called = true;
-        try { raw(...args); } catch (_) { /* swallow */ }
-    };
-    this._executeRequest(cb).catch(err => cb(err, null, null));
-    return this;
+EdgeGrid.prototype.send = function () {
+    return this._executeRequest();
 };
 
 /**
  * Async implementation of the HTTP dispatch.
  *
- * @param  {Function} callback  Node-style callback(err, response, body).
+ * @return {Promise<{response: Dispatcher.ResponseData, body: string|Buffer}>}
  * @private
  */
-EdgeGrid.prototype._executeRequest = async function (callback) {
+EdgeGrid.prototype._executeRequest = async function () {
     const logger = getLogger();
 
     logger.debug({ url: this.request.url, method: this.request.method }, 'Starting request');
 
-    // Passing body to undici for these methods causes a RequestContentLengthMismatchError.
+    // Passing body to undici for GET/HEAD causes a RequestContentLengthMismatchError.
     const NO_BODY_METHODS = ['GET', 'HEAD'];
     const response = await request(this.request.url, {
         method: this.request.method,
@@ -114,8 +112,8 @@ EdgeGrid.prototype._executeRequest = async function (callback) {
             ? null
             : (this.request.body || null),
         maxRedirections: 0,
-        // Only pass dispatcher when explicitly set; null/undefined falls back to undici's
-        // global dispatcher, allowing callers to opt out of EnvHttpProxyAgent.
+        // Only spread dispatcher when explicitly set; omitting it lets undici fall back to
+        // its global dispatcher, allowing callers to opt out of EnvHttpProxyAgent.
         ...(this._dispatcher != null && { dispatcher: this._dispatcher }),
     });
 
@@ -123,16 +121,19 @@ EdgeGrid.prototype._executeRequest = async function (callback) {
 
     if (helpers.isRedirect(response.statusCode)) {
         const rawLocation = response.headers['location'];
+        // Consume the redirect body to release the TCP socket back to the pool
+        // before opening a new connection to the redirect target.
         await response.body.dump();
 
         if (!rawLocation) {
-            callback(new Error(`Redirect (${response.statusCode}) received without a Location header`), null, null);
-            return;
+            const err = new Error(`Redirect (${response.statusCode}) received without a Location header`);
+            err.statusCode = response.statusCode;
+            throw err;
         }
 
+        // HTTP allows duplicate Location headers; take the first value.
         const location = Array.isArray(rawLocation) ? rawLocation[0] : rawLocation;
-        await this._handleRedirect(location, callback);
-        return;
+        return this._handleRedirect(location);
     }
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -144,38 +145,32 @@ EdgeGrid.prototype._executeRequest = async function (callback) {
             contentType.includes('tar') ||
             contentType.includes('octet-stream');
 
-        let responseBody;
-        if (isBinaryResponse) {
-            const arrayBuffer = await response.body.arrayBuffer();
-            responseBody = Buffer.from(arrayBuffer);
-        } else {
-            responseBody = await response.body.text();
-        }
+        const body = isBinaryResponse
+            ? Buffer.from(await response.body.arrayBuffer())
+            : await response.body.text();
 
-        callback(null, response, responseBody);
-        return;
+        return { response, body };
     }
 
+    // Consume the error body to release the TCP socket before throwing.
     await response.body.dump();
 
     const err = new Error(`Request failed with status code ${response.statusCode}`);
     err.statusCode = response.statusCode;
     err.headers = response.headers;
     err.response = response;
-    callback(err, null, null);
+    throw err;
 };
 
 /**
- * Handles an HTTP redirect by rebuilding the authorization for
- * the new URL and retrying the request.
- * The caller is responsible for consuming (dump()) the redirect response body
- * before invoking this method.
+ * Handles an HTTP redirect by rebuilding the EdgeGrid authorization signature
+ * for the new URL and retrying the request.
  *
- * @param  {string}   location  Value of the Location header from the redirect response.
- * @param  {Function} callback  Node-style callback(err, response, body).
+ * @param  {string} location  Resolved value of the Location header.
+ * @return {Promise<{response: Dispatcher.ResponseData, body: string|Buffer}>}
  * @private
  */
-EdgeGrid.prototype._handleRedirect = async function (location, callback) {
+EdgeGrid.prototype._handleRedirect = async function (location) {
     let parsedUrl;
     try {
         parsedUrl = new URL(location);
@@ -187,7 +182,7 @@ EdgeGrid.prototype._handleRedirect = async function (location, callback) {
     this.request.path = parsedUrl.pathname + parsedUrl.search;
 
     this.auth(this.request);
-    await this._executeRequest(callback);
+    return this._executeRequest();
 };
 
 /**
