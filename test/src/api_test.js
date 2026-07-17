@@ -609,6 +609,51 @@ describe('Api', function () {
             });
         });
 
+        describe('when called with a callback (compatibility mode)', function () {
+            it('invokes the callback with (null, response, body) on success', function (done) {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(200, JSON.stringify({ ok: true }), {
+                        headers: { 'content-type': 'application/json' }
+                    });
+
+                this.api.auth({ path: '/foo' });
+                this.api.send(function (err, response, body) {
+                    assert.strictEqual(err, null);
+                    assert.strictEqual(response.statusCode, 200);
+                    assert.strictEqual(JSON.parse(body).ok, true);
+                    done();
+                });
+            });
+
+            it('invokes the callback with (err, null, null) on HTTP error', function (done) {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(403, 'Forbidden', { headers: {} });
+
+                this.api.auth({ path: '/foo' });
+                this.api.send(function (err, response, body) {
+                    assert.ok(err instanceof Error);
+                    assert.strictEqual(err.statusCode, 403);
+                    assert.strictEqual(response, null);
+                    assert.strictEqual(body, null);
+                    done();
+                });
+            });
+
+            it('returns this for chaining when a callback is provided', function (done) {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(200, '{}', { headers: { 'content-type': 'application/json' } });
+
+                // send() must return `this` (the EdgeGrid instance) for chaining,
+                // not a Promise, when a callback is provided.
+                const instance = this.api.auth({ path: '/foo' });
+                const result = instance.send(() => { done(); });
+                assert.strictEqual(result, instance);
+            });
+        });
+
         describe('Builds the request using the properties of the local config Object (.edgerc file)', () => {
             it('when max_body is provided in the config', () => {
                 const req = {

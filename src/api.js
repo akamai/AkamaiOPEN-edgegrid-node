@@ -86,10 +86,29 @@ EdgeGrid.prototype.auth = function (req) {
  *   - err.headers     {object}             Response headers
  *   - err.response    {Dispatcher.ResponseData}  Full undici response for advanced consumers
  *
- * @return {Promise<{response: Dispatcher.ResponseData, body: string|Buffer}>}
+ * Passing an optional callback enables compatibility mode: the callback is invoked
+ * with the Node-style (err, response, body) signature and `this` is returned for
+ * chaining, matching the pre-v5 behavior. Prefer the Promise API for new code.
+ *
+ * @param  {Function} [callback]  Optional Node-style callback(err, response, body).
+ * @return {Promise<{response, body}>|EdgeGrid}  Promise when no callback; `this` otherwise.
  */
-EdgeGrid.prototype.send = function () {
-    return this._executeRequest();
+EdgeGrid.prototype.send = function (callback) {
+    if (callback !== undefined && typeof callback !== 'function') {
+        throw new TypeError('callback must be a function');
+    }
+    const promise = this._executeRequest();
+
+    if (callback === undefined) {
+        return promise;
+    }
+
+    // Compatibility mode: wrap the Promise result into the pre-v5 callback
+    // signature so existing call sites can migrate incrementally.
+    promise
+        .then(({ response, body }) => callback(null, response, body))
+        .catch(err => callback(err, null, null));
+    return this; // preserve old chainable return value
 };
 
 /**

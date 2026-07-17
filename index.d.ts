@@ -17,8 +17,17 @@ declare class EdgeGrid {
      *
      * Resolves with { response, body } on a 2xx response.
      * Rejects with an EdgeGrid.EdgeGridError on HTTP errors (4xx/5xx) or network failures.
+     *
+     * If a callback is provided, the library operates in compatibility mode:
+     * the callback is invoked with (err, response, body) and `this` is returned
+     * for chaining, matching the pre-v5 behavior.
      */
     send(): Promise<EdgeGrid.SendResult>;
+    send(callback: (
+        error: EdgeGrid.EdgeGridError | null,
+        response?: Dispatcher.ResponseData | null,
+        body?: string | Buffer | null
+    ) => void): this;
 
     /**
      * Builds the request using the properties of the local config Object.

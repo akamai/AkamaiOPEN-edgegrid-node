@@ -5,10 +5,10 @@
 ### Breaking Changes
 
 * Replaced `axios` with `undici` as the HTTP client. Removed `axios`, `follow-redirects`, and `proxy-from-env` dependencies.
-* `send()` now returns a `Promise<{ response, body }>` instead of accepting a Node-style callback. Use `await eg.auth(req).send()` or `.then()`/`.catch()`.
+* `send()` now returns a `Promise<{ response, body }>` by default. Passing an optional callback retains the pre-v5 Node-style `(err, response, body)` signature for incremental migration.
 * The `response` object is now an undici `Dispatcher.ResponseData`. Use `response.statusCode` instead of the former `response.status`.
-* HTTP errors (4xx, 5xx) now reject the Promise with an `EdgeGridError` that includes `err.statusCode` and `err.headers`. Previously axios threw with `err.response.data`.
-* Binary responses (`responseType: 'arraybuffer'` or binary Content-Type) now resolve with a native `Buffer` as `body`. Previously binary data was accessible via axios-specific `response.data`.
+* HTTP errors (4xx, 5xx) now reject the Promise with an `EdgeGridError` that includes `err.statusCode` and `err.headers`. Previously axios threw with `err.response.data`. In callback mode, `err` is passed as the first argument as before.
+* Binary responses (`responseType: 'arraybuffer'` or binary Content-Type) now resolve with a native `Buffer` as `body`. Previously binary data was accessible via the axios-specific `response.data`.
 * The `proxy` option in `auth()` is no longer supported. Configure proxy via the `HTTPS_PROXY` environment variable or by assigning `eg._dispatcher = new ProxyAgent(url)`.
 * Minimum supported Node.js version is now **v22**.
 
@@ -16,7 +16,7 @@
 
 * `application/octet-stream` responses are automatically treated as binary and resolved as a `Buffer`.
 * Proxy support via `HTTP_PROXY` / `HTTPS_PROXY` environment variables works automatically with no configuration required.
-* Updated TypeScript declarations: `send()` typed as `Promise<SendResult>`, added `EdgeGridError` and `SendResult` interfaces.
+* Updated TypeScript declarations: `send()` typed as `Promise<SendResult>` with optional callback overload, added `EdgeGridError` and `SendResult` interfaces in `EdgeGrid` namespace.
 
 
 ## 4.0.4 (Jul 2, 2026)
