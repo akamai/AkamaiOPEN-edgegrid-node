@@ -9,6 +9,18 @@ const { request, EnvHttpProxyAgent } = require('undici'),
 // Module-level singleton: reads HTTP_PROXY / HTTPS_PROXY env vars and manages connection pooling.
 const proxyAgent = new EnvHttpProxyAgent();
 
+// Text MIME types are a small, well-known set. Everything else is treated as binary
+// so that unknown or future binary types are handled correctly without code changes.
+function isTextContentType(contentType) {
+    const base = contentType.split(';')[0].trim().toLowerCase();
+    return base.startsWith('text/') ||
+        base === 'application/json' ||
+        base === 'application/xml' ||
+        base === 'application/javascript' ||
+        base.endsWith('+json') ||
+        base.endsWith('+xml');
+}
+
 /**
  *
  * @param {String} client_token      The client token value from the .edgerc file.
@@ -158,11 +170,11 @@ EdgeGrid.prototype._executeRequest = async function () {
     if (response.statusCode >= 200 && response.statusCode < 300) {
         const rawContentType = response.headers['content-type'];
         const contentType = Array.isArray(rawContentType) ? rawContentType[0] : (rawContentType || '');
+
+        // Treat as binary when responseType is explicitly set, or when the Content-Type is not a known text type.
         const isBinaryResponse =
             this.request['responseType'] === 'arraybuffer' ||
-            contentType.includes('gzip') ||
-            contentType.includes('tar') ||
-            contentType.includes('octet-stream');
+            !isTextContentType(contentType);
 
         const body = isBinaryResponse
             ? Buffer.from(await response.body.arrayBuffer())

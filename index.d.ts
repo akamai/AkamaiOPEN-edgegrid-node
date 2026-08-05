@@ -5,7 +5,6 @@ declare class EdgeGrid {
                 clientSecret?: string,
                 accessToken?: string,
                 host?: string,
-                debug?: boolean,
                 max_body?: number);
 
     request: object;
@@ -59,9 +58,10 @@ declare namespace EdgeGrid {
         response: Dispatcher.ResponseData;
         /**
          * Response body.
-         * - string  for text/JSON responses
-         * - Buffer  for binary responses (application/gzip, application/tar+gzip,
-         *           application/octet-stream, or when responseType: 'arraybuffer' is set)
+         * - string  for text responses: text/*, application/json, application/xml,
+         *           application/javascript, and any *+json or *+xml type
+         * - Buffer  for all other content types (binary/unknown), or when
+         *           responseType: 'arraybuffer' is explicitly set
          */
         body: string | Buffer;
     }

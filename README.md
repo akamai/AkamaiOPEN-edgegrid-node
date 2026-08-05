@@ -50,49 +50,66 @@ You can obtain the authentication credentials through an API client. Requests to
 
 To use the library, provide the path to your `.edgerc`, your credentials section header, and the appropriate endpoint information.
 
-```javascript
-var EdgeGrid = require('akamai-edgegrid');
+### Promise API (recommended)
 
-var eg = new EdgeGrid({
+```javascript
+const EdgeGrid = require('akamai-edgegrid');
+
+const eg = new EdgeGrid({
   path: '/path/to/.edgerc',
   section: 'section-header'
 });
 
+try {
+  const { response, body } = await eg.auth({
+    path: '/identity-management/v3/user-profile',
+    method: 'GET',
+    headers: { 'Accept': 'application/json' }
+  }).send();
+
+  console.log(response.statusCode); // 200
+  console.log(JSON.parse(body));
+} catch (err) {
+  console.error(err.statusCode, err.message);
+}
+```
+
+### Callback API (compatibility)
+
+Passing a callback to `send()` enables the Node-style `(err, response, body)` interface. Use this to keep existing call sites working while migrating incrementally — new code should use the Promise API.
+
+```javascript
 eg.auth({
   path: '/identity-management/v3/user-profile',
   method: 'GET',
-  headers: {
-    'Accept': "application/json"
-  },
-  body: {}
-});
-
-eg.send(function(error, response, body) {
+  headers: { 'Accept': 'application/json' }
+}).send(function (err, response, body) {
+  if (err) return console.error(err);
+  console.log(response.statusCode); // note: statusCode, not the former response.status
   console.log(body);
 });
 ```
 
 ### Chaining
 
-You can also chain calls by combining the execution of `auth` and `send` methods.
+`auth()` returns `this`, so you can chain directly into `send()`.
 
 ```javascript
-eg.auth({
-  path: '/identity-management/v3/user-profile',
-  method: 'GET',
-  headers: {},
-  body: {}
-}).send(function (error, response, body) {
-  console.log(body);
-});
+const { response, body } = await eg
+  .auth({
+    path: '/identity-management/v3/user-profile',
+    method: 'GET',
+    headers: {}
+  })
+  .send();
 ```
 
 ### Query string parameters
 
-When entering query parameters use the `qs` property under the `auth` method. Set up the parameters as name-value pairs in a object.
+When entering query parameters use the `qs` property under the `auth` method. Set up the parameters as name-value pairs in an object.
 
 ```javascript
-eg.auth({
+const { response, body } = await eg.auth({
     path: '/identity-management/v3/user-profile',
     method: 'GET',
     headers: {},
@@ -100,9 +117,8 @@ eg.auth({
         authGrants: true,
         notifications: true,
         actions: true
-    },
-    body: {}
-})
+    }
+}).send();
 ```
 
 ### Headers
@@ -112,13 +128,13 @@ Enter request headers as name-value pairs in an object.
 > **Note:** You don't need to include the `Content-Type` and `Content-Length` headers. The authentication layer adds these values.
 
 ```javascript
-eg.auth({
+const { response, body } = await eg.auth({
   path: '/identity-management/v3/user-profile',
   method: 'GET',
   headers: {
-    'Accept': "application/json"
+    'Accept': 'application/json'
   }
-});
+}).send();
 ```
 
 ### Body data
@@ -126,43 +142,48 @@ eg.auth({
 Provide the request body as an object or as a POST data formatted string.
 
 ```javascript
-// Object
-eg.auth({
+const { response, body } = await eg.auth({
     path: '/identity-management/v3/user-profile/basic-info',
     method: 'PUT',
     headers: {},
     body: {
-        contactType: "Billing",
-        country: "USA",
-        firstName: "John",
-        lastName: "Smith",
-        phone: "3456788765",
-        preferredLanguage: "English",
+        contactType: 'Billing',
+        country: 'USA',
+        firstName: 'John',
+        lastName: 'Smith',
+        phone: '3456788765',
+        preferredLanguage: 'English',
         sessionTimeOut: 30,
-        timeZone: "GMT"
-   }
-});
+        timeZone: 'GMT'
+    }
+}).send();
 ```
 
 ### Encoding
 
-When interacting with binary data, such as during the retrieval of PDF invoices, specify the `responseType` as an `arraybuffer` in the `auth` method call. Omitting the `responseType` will cause an unreadable or blank response.
+The library automatically detects binary responses by content type — any response that is not a known text type (`text/*`, `application/json`, `application/xml`, etc.) is returned as a native `Buffer`. You can also force binary mode by setting `Accept` to `application/gzip` or `application/tar+gzip`.
 
 ```javascript
 const fs = require('fs');
 
-eg.auth({
-  path : `/invoicing-api/v2/contracts/${contractId}/invoices/${invoiceNumber}/files/${fileName}`,
+// Promise style (recommended)
+const { body } = await eg.auth({
+  path: `/invoicing-api/v2/contracts/${contractId}/invoices/${invoiceNumber}/files/${fileName}`,
   method: 'GET',
-  responseType: 'arraybuffer', // Important: instructs the library to return a Buffer
+  headers: { 'Accept': 'application/gzip' }
+}).send();
+
+fs.writeFileSync(`./${fileName}`, body); // body is already a Buffer
+
+// Callback style (compatibility)
+eg.auth({
+  path: `/invoicing-api/v2/contracts/${contractId}/invoices/${invoiceNumber}/files/${fileName}`,
+  method: 'GET',
+  headers: { 'Accept': 'application/gzip' }
 }).send((err, response, body) => {
-  if (err) {
-    return console.log(err);
-  }
-  fs.writeFile(`./${fileName}`, body, (err) => {
-    if (err){
-      return console.log(err);
-    }
+  if (err) return console.error(err);
+  fs.writeFile(`./${fileName}`, body, (writeErr) => {
+    if (writeErr) return console.error(writeErr);
     console.log('File was saved!');
   });
 });
@@ -250,11 +271,143 @@ The library uses [`undici`](https://github.com/nodejs/undici)'s `EnvHttpProxyAge
   eg._dispatcher = new ProxyAgent('https://username:password@my.proxy.com:3128');
 
   eg.auth({ path: '/identity-management/v3/user-profile', method: 'GET' })
-    .send((err, response, body) => {
-      if (err) return console.log(err);
-      console.log(body);
-    });
+    .send()
+    .then(({ response, body }) => console.log(response.statusCode, body))
+    .catch(err => console.error(err));
   ```
+
+## Migrating from v4 (axios → undici)
+
+v5 replaces `axios` with `undici` as the HTTP transport. The following changes affect **all consumers** regardless of whether you use the Promise or callback API.
+
+### `response.statusCode` replaces `response.status`
+
+```javascript
+// v4 (axios)
+if (response.status === 200) { console.log('ok'); }
+
+// v5 (undici)
+if (response.statusCode === 200) { console.log('ok'); }
+```
+
+### Error shape
+
+```javascript
+// v4 (axios) — callback style
+eg.auth({ path: '/foo' }).send(function (err, response, body) {
+  if (err) {
+    console.log(err.response.status);  // HTTP status
+    console.log(err.response.data);    // response body
+  }
+});
+
+// v5 (undici) — Promise style
+try {
+  const { response, body } = await eg.auth({ path: '/foo' }).send();
+} catch (err) {
+  console.log(err.statusCode); // HTTP status; undefined for network errors (connection refused, DNS failure etc.)
+  console.log(err.headers);    // response headers
+  console.log(err.message);    // human-readable message
+}
+```
+
+### Binary responses
+
+```javascript
+// v4 — binary data was only in response.data; body was unusable
+eg.auth({ path: '/file.gz', responseType: 'arraybuffer' }).send(function (err, response) {
+  const buffer = response.data; // axios-specific field
+  fs.writeFileSync('file.gz', buffer);
+});
+
+// v5 — body is a native Buffer automatically for binary content types
+const { body } = await eg.auth({
+  path: '/file.gz',
+  headers: { 'Accept': 'application/gzip' }
+}).send();
+fs.writeFileSync('file.gz', body);
+```
+
+### Proxy
+
+```javascript
+// v4 — proxy configured inside auth()
+eg.auth({ path: '/foo', proxy: { host: 'proxy.host', port: 3128 } });
+
+// v5 — use environment variables (automatic, no code needed)
+// export HTTPS_PROXY=http://proxy.host:3128
+
+// v5 — or programmatic per-instance proxy
+const { ProxyAgent } = require('undici');
+eg._dispatcher = new ProxyAgent('http://proxy.host:3128');
+```
+
+---
+
+## Migrating from callback to Promise API
+
+Use this guide to migrate existing callback-based call sites to the Promise API.
+
+### Basic request
+
+```javascript
+// Before (callback)
+eg.auth({ path: '/foo', method: 'GET' }).send(function (err, response, body) {
+  if (err) { console.error(err); return; }
+  console.log(response.statusCode, body);
+});
+
+// After (Promise)
+try {
+  const { response, body } = await eg.auth({ path: '/foo', method: 'GET' }).send();
+  console.log(response.statusCode, body);
+} catch (err) {
+  console.error(err.statusCode, err.message);
+}
+```
+
+### Error handling
+
+```javascript
+// Before (callback) — must check err manually on every call
+eg.auth({ path: '/foo' }).send(function (err, response, body) {
+  if (err) {
+    console.error(err.statusCode, err.message);
+    return;
+  }
+  console.log(response.statusCode, body); // happy path
+});
+
+// After (Promise) — single catch block handles all errors for the whole async flow
+try {
+  const { response, body } = await eg.auth({ path: '/foo' }).send();
+  console.log(response.statusCode, body); // happy path
+} catch (err) {
+  console.error(err.statusCode, err.message);
+}
+```
+
+### Parallel requests
+
+```javascript
+// Before (callback) — requires manual coordination with a shared counter or object
+let results = {};
+eg.auth({ path: '/users' }).send((err, r, body) => {
+  if (!err) results.users = body;
+  if (results.users && results.profile) console.log(results);
+});
+eg.auth({ path: '/user-profile' }).send((err, r, body) => {
+  if (!err) results.profile = body;
+  if (results.users && results.profile) console.log(results);
+});
+
+// After (Promise) — standard Promise.all
+const [users, profile] = await Promise.all([
+  eg.auth({ path: '/users' }).send(),
+  eg.auth({ path: '/user-profile' }).send()
+]);
+console.log(JSON.parse(users.body), JSON.parse(profile.body));
+```
 
 ## Reporting issues
 

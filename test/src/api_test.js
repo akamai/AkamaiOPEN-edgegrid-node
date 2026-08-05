@@ -442,6 +442,18 @@ describe('Api', function () {
             await mockAgent.close();
         });
 
+        it('auth() is chainable into send()', function () {
+            // auth() returns `this`, enabling the .auth({...}).send() fluent pattern.
+            mockAgent.get('https://base.com')
+                .intercept({ path: '/foo', method: 'GET' })
+                .reply(200, '{}', { headers: { 'content-type': 'application/json' } });
+
+            const instance = this.api.auth({ path: '/foo' });
+            assert.strictEqual(instance, this.api, 'auth() must return this');
+            // Complete the chain to verify send() works after auth()
+            return instance.send();
+        });
+
         it('returns a Promise', function () {
             mockAgent.get('https://base.com')
                 .intercept({ path: '/foo', method: 'GET' })
