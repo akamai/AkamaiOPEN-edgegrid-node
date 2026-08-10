@@ -74,9 +74,11 @@ try {
 }
 ```
 
-### Callback API (compatibility)
+### Callback API (deprecated)
 
-Passing a callback to `send()` enables the Node-style `(err, response, body)` interface. Use this to keep existing call sites working while migrating incrementally — new code should use the Promise API.
+> **Deprecated:** The callback form of `send()` is deprecated and will be removed in a future major version. New code should use the Promise API. Use this only to keep existing call sites working while migrating incrementally.
+
+Passing a callback to `send()` enables the Node-style `(err, response, body)` interface.
 
 ```javascript
 eg.auth({

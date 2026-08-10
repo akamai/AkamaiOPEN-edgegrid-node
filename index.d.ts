@@ -20,8 +20,12 @@ declare class EdgeGrid {
      * If a callback is provided, the library operates in compatibility mode:
      * the callback is invoked with (err, response, body) and `this` is returned
      * for chaining, matching the pre-v5 behavior.
+     *
+     * @deprecated Passing a callback to send() is deprecated and will be removed
+     *             in a future major version. Use the Promise API instead.
      */
     send(): Promise<EdgeGrid.SendResult>;
+    /** @deprecated Use the Promise overload instead. Callback support will be removed in a future major version. */
     send(callback: (
         error: EdgeGrid.EdgeGridError | null,
         response?: Dispatcher.ResponseData | null,

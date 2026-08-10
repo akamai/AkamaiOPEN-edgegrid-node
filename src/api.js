@@ -100,9 +100,11 @@ EdgeGrid.prototype.auth = function (req) {
  *
  * Passing an optional callback enables compatibility mode: the callback is invoked
  * with the Node-style (err, response, body) signature and `this` is returned for
- * chaining, matching the pre-v5 behavior. Prefer the Promise API for new code.
+ * chaining, matching the pre-v5 behavior. The callback form is deprecated and will
+ * be removed in a future major version. Prefer the Promise API for new code.
  *
  * @param  {Function} [callback]  Optional Node-style callback(err, response, body).
+ *                                Deprecated — use the Promise API instead.
  * @return {Promise<{response, body}>|EdgeGrid}  Promise when no callback; `this` otherwise.
  */
 EdgeGrid.prototype.send = function (callback) {

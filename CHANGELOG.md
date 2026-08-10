@@ -5,7 +5,7 @@
 ### Breaking Changes
 
 * Replaced `axios` with `undici` as the HTTP client. Removed `axios`, `follow-redirects`, and `proxy-from-env` dependencies.
-* `send()` now returns a `Promise<{ response, body }>` by default. Passing an optional callback retains the Node-style `(err, response, body)` signature for incremental migration.
+* `send()` now returns a `Promise<{ response, body }>` by default. Passing an optional callback retains the Node-style `(err, response, body)` signature for incremental migration. **The callback form is deprecated and will be removed in a future major version.**
 * The `response` object is now an undici `Dispatcher.ResponseData`. Use `response.statusCode` instead of the former `response.status`.
 * HTTP errors (4xx, 5xx) now reject the Promise with an `EdgeGridError` that includes `err.statusCode` and `err.headers`. Previously axios threw with `err.response.data`. In callback mode, `err` is passed as the first argument as before.
 * Binary responses now resolve as a native `Buffer` in `body`. The library treats any response whose `Content-Type` is not a known text type (`text/*`, `application/json`, `application/xml`, `application/javascript`, `*+json`, `*+xml`) as binary. 
