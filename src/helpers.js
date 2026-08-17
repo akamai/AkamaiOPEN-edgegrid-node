@@ -32,7 +32,7 @@ module.exports = {
         var logger = getLogger()
         let contentHash = '',
             preparedBody = request.body || '',
-            isTarball = preparedBody instanceof Uint8Array && request.headers['Content-Type'] === 'application/gzip';
+            isTarball = this.isBinaryBundle(preparedBody, request.headers && request.headers['Content-Type']);
 
         if (typeof preparedBody === 'object' && !isTarball) {
             let postDataNew = '',
@@ -79,6 +79,21 @@ module.exports = {
         }
 
         return contentHash;
+    },
+    /**
+     * Determines if the provided body is a binary GZIP or TAR.GZ bundle.
+     *
+     * @param {any} body - The request body payload to evaluate.
+     * @param {string} [contentType] - The 'Content-Type' header from the request.
+     * @returns {boolean} True if the body is a Uint8Array and the content type indicates a gzip/tarball archive.
+     */
+    isBinaryBundle: function (body, contentType) {
+        if (!(body instanceof Uint8Array)) {
+            return false;
+        }
+
+        const mediaType = (contentType || '').split(';')[0].trim().toLowerCase();
+        return mediaType === 'application/gzip' || mediaType === 'application/tar+gzip';
     },
     /**
      *

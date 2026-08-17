@@ -14,6 +14,5 @@ var req = {
     headers: {},
     body: {}
 }
-expectType<EdgeGrid>(eg.auth(req))
-
-expectType<EdgeGrid>(eg.send((error, resp, body) => console.log(body)))
+expectType<Promise<{ response: import('undici').Dispatcher.ResponseData, body: string | Buffer }>>(eg.send(req))
+expectType<EdgeGrid>(eg.send(req, (error, resp, body) => console.log(body)))

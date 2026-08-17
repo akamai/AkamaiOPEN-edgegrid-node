@@ -61,11 +61,11 @@ const eg = new EdgeGrid({
 });
 
 try {
-  const { response, body } = await eg.auth({
+  const { response, body } = await eg.send({
     path: '/identity-management/v3/user-profile',
     method: 'GET',
     headers: { 'Accept': 'application/json' }
-  }).send();
+  });
 
   console.log(response.statusCode); // 200
   console.log(JSON.parse(body));
@@ -81,37 +81,35 @@ try {
 Passing a callback to `send()` enables the Node-style `(err, response, body)` interface.
 
 ```javascript
-eg.auth({
+eg.send({
   path: '/identity-management/v3/user-profile',
   method: 'GET',
   headers: { 'Accept': 'application/json' }
-}).send(function (err, response, body) {
+}, function (err, response, body) {
   if (err) return console.error(err);
   console.log(response.statusCode); // note: statusCode, not the former response.status
   console.log(body);
 });
 ```
 
-### Chaining
+### Concurrent requests
 
-`auth()` returns `this`, so you can chain directly into `send()`.
+`send()` owns the complete request state, so one `EdgeGrid` instance can safely
+send multiple requests at once.
 
 ```javascript
-const { response, body } = await eg
-  .auth({
-    path: '/identity-management/v3/user-profile',
-    method: 'GET',
-    headers: {}
-  })
-  .send();
+const [users, profile] = await Promise.all([
+  eg.send({ path: '/users', method: 'GET' }),
+  eg.send({ path: '/user-profile', method: 'GET' })
+]);
 ```
 
 ### Query string parameters
 
-When entering query parameters use the `qs` property under the `auth` method. Set up the parameters as name-value pairs in an object.
+When entering query parameters use the `qs` property in the request passed to `send()`. Set up the parameters as name-value pairs in an object.
 
 ```javascript
-const { response, body } = await eg.auth({
+const { response, body } = await eg.send({
     path: '/identity-management/v3/user-profile',
     method: 'GET',
     headers: {},
@@ -120,7 +118,7 @@ const { response, body } = await eg.auth({
         notifications: true,
         actions: true
     }
-}).send();
+});
 ```
 
 ### Headers
@@ -130,13 +128,13 @@ Enter request headers as name-value pairs in an object.
 > **Note:** You don't need to include the `Content-Type` and `Content-Length` headers. The authentication layer adds these values.
 
 ```javascript
-const { response, body } = await eg.auth({
+const { response, body } = await eg.send({
   path: '/identity-management/v3/user-profile',
   method: 'GET',
   headers: {
     'Accept': 'application/json'
   }
-}).send();
+});
 ```
 
 ### Body data
@@ -144,7 +142,7 @@ const { response, body } = await eg.auth({
 Provide the request body as an object or as a POST data formatted string.
 
 ```javascript
-const { response, body } = await eg.auth({
+const { response, body } = await eg.send({
     path: '/identity-management/v3/user-profile/basic-info',
     method: 'PUT',
     headers: {},
@@ -158,7 +156,7 @@ const { response, body } = await eg.auth({
         sessionTimeOut: 30,
         timeZone: 'GMT'
     }
-}).send();
+});
 ```
 
 ### Encoding
@@ -169,11 +167,11 @@ The library automatically detects binary responses by content type — any respo
 const fs = require('fs');
 
 // Promise style (recommended)
-const { body } = await eg.auth({
+const { body } = await eg.send({
   path: `/invoicing-api/v2/contracts/${contractId}/invoices/${invoiceNumber}/files/${fileName}`,
   method: 'GET',
   headers: { 'Accept': 'application/gzip' }
-}).send();
+});
 
 fs.writeFileSync(`./${fileName}`, body); // body is already a Buffer
 
@@ -272,8 +270,7 @@ The library uses [`undici`](https://github.com/nodejs/undici)'s `EnvHttpProxyAge
   // Override the default dispatcher with a per-instance proxy
   eg._dispatcher = new ProxyAgent('https://username:password@my.proxy.com:3128');
 
-  eg.auth({ path: '/identity-management/v3/user-profile', method: 'GET' })
-    .send()
+  eg.send({ path: '/identity-management/v3/user-profile', method: 'GET' })
     .then(({ response, body }) => console.log(response.statusCode, body))
     .catch(err => console.error(err));
   ```
@@ -305,7 +302,7 @@ eg.auth({ path: '/foo' }).send(function (err, response, body) {
 
 // v5 (undici) — Promise style
 try {
-  const { response, body } = await eg.auth({ path: '/foo' }).send();
+  const { response, body } = await eg.send({ path: '/foo' });
 } catch (err) {
   console.log(err.statusCode); // HTTP status; undefined for network errors (connection refused, DNS failure etc.)
   console.log(err.headers);    // response headers
@@ -323,10 +320,10 @@ eg.auth({ path: '/file.gz', responseType: 'arraybuffer' }).send(function (err, r
 });
 
 // v5 — body is a native Buffer automatically for binary content types
-const { body } = await eg.auth({
+const { body } = await eg.send({
   path: '/file.gz',
   headers: { 'Accept': 'application/gzip' }
-}).send();
+});
 fs.writeFileSync('file.gz', body);
 ```
 
@@ -354,14 +351,14 @@ Use this guide to migrate existing callback-based call sites to the Promise API.
 
 ```javascript
 // Before (callback)
-eg.auth({ path: '/foo', method: 'GET' }).send(function (err, response, body) {
+eg.send({ path: '/foo', method: 'GET' }, function (err, response, body) {
   if (err) { console.error(err); return; }
   console.log(response.statusCode, body);
 });
 
 // After (Promise)
 try {
-  const { response, body } = await eg.auth({ path: '/foo', method: 'GET' }).send();
+  const { response, body } = await eg.send({ path: '/foo', method: 'GET' });
   console.log(response.statusCode, body);
 } catch (err) {
   console.error(err.statusCode, err.message);
@@ -372,7 +369,7 @@ try {
 
 ```javascript
 // Before (callback) — must check err manually on every call
-eg.auth({ path: '/foo' }).send(function (err, response, body) {
+eg.send({ path: '/foo' }, function (err, response, body) {
   if (err) {
     console.error(err.statusCode, err.message);
     return;
@@ -382,7 +379,7 @@ eg.auth({ path: '/foo' }).send(function (err, response, body) {
 
 // After (Promise) — single catch block handles all errors for the whole async flow
 try {
-  const { response, body } = await eg.auth({ path: '/foo' }).send();
+  const { response, body } = await eg.send({ path: '/foo' });
   console.log(response.statusCode, body); // happy path
 } catch (err) {
   console.error(err.statusCode, err.message);
@@ -394,19 +391,19 @@ try {
 ```javascript
 // Before (callback) — requires manual coordination with a shared counter or object
 let results = {};
-eg.auth({ path: '/users' }).send((err, r, body) => {
+eg.send({ path: '/users' }, (err, r, body) => {
   if (!err) results.users = body;
   if (results.users && results.profile) console.log(results);
 });
-eg.auth({ path: '/user-profile' }).send((err, r, body) => {
+eg.send({ path: '/user-profile' }, (err, r, body) => {
   if (!err) results.profile = body;
   if (results.users && results.profile) console.log(results);
 });
 
 // After (Promise) — standard Promise.all
 const [users, profile] = await Promise.all([
-  eg.auth({ path: '/users' }).send(),
-  eg.auth({ path: '/user-profile' }).send()
+  eg.send({ path: '/users' }),
+  eg.send({ path: '/user-profile' })
 ]);
 console.log(JSON.parse(users.body), JSON.parse(profile.body));
 ```

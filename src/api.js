@@ -43,25 +43,24 @@ const EdgeGrid = function (client_token, client_secret, access_token, host, max_
 };
 
 /**
- * Builds the request using the properties of the local config Object.
+ * Builds and signs a request using the local configuration.
  *
  * @param  {Object} req The request Object. Can optionally contain a
  *                      'headersToSign' property: An ordered list header names
  *                      that will be included in the signature. This will be
  *                      provided by specific APIs.
- * @return EdgeGrid object (self)
+ * @return {Object} Signed request.
+ * @private
  */
-EdgeGrid.prototype.auth = function (req) {
-    req = helpers.extend(req, {
+EdgeGrid.prototype._prepareRequest = function (req) {
+    req = {
+        ...req,
         url: req.path,
-        method: 'GET',
-        headers: {},
-    });
+        method: req.method || 'GET',
+        headers: helpers.extendHeaders({ ...(req.headers || {}) }),
+    };
 
-    req.headers = helpers.extendHeaders(req.headers);
-
-    let isTarball = req.body instanceof Uint8Array &&
-        (req.headers['Content-Type'] === 'application/gzip' || req.headers['Content-Type'] === 'application/tar+gzip');
+    const isTarball = helpers.isBinaryBundle(req.body, req.headers['Content-Type']);
 
     // Convert body object to properly formatted string
     if (req.body) {
@@ -70,7 +69,7 @@ EdgeGrid.prototype.auth = function (req) {
         }
     }
 
-    this.request = auth.generateAuth(
+    const signedRequest = auth.generateAuth(
         req,
         this.config.client_token,
         this.config.client_secret,
@@ -80,10 +79,10 @@ EdgeGrid.prototype.auth = function (req) {
     );
 
     if (req.headers['Accept'] === 'application/gzip' || req.headers['Accept'] === 'application/tar+gzip') {
-        this.request['responseType'] = 'arraybuffer';
+        signedRequest.responseType = 'arraybuffer';
     }
 
-    return this;
+    return signedRequest;
 };
 
 /**
@@ -103,15 +102,16 @@ EdgeGrid.prototype.auth = function (req) {
  * chaining, matching the pre-v5 behavior. The callback form is deprecated and will
  * be removed in a future major version. Prefer the Promise API for new code.
  *
+ * @param  {Object} requestOptions Request options to authenticate and send.
  * @param  {Function} [callback]  Optional Node-style callback(err, response, body).
  *                                Deprecated — use the Promise API instead.
  * @return {Promise<{response, body}>|EdgeGrid}  Promise when no callback; `this` otherwise.
  */
-EdgeGrid.prototype.send = function (callback) {
+EdgeGrid.prototype.send = function (requestOptions, callback) {
     if (callback !== undefined && typeof callback !== 'function') {
         throw new TypeError('callback must be a function');
     }
-    const promise = this._executeRequest();
+    const promise = this._executeRequest(this._prepareRequest(requestOptions));
 
     if (callback === undefined) {
         return promise;
@@ -120,8 +120,10 @@ EdgeGrid.prototype.send = function (callback) {
     // Compatibility mode: wrap the Promise result into the pre-v5 callback
     // signature so existing call sites can migrate incrementally.
     promise
-        .then(({ response, body }) => callback(null, response, body))
-        .catch(err => callback(err, null, null));
+        .then(
+            ({ response, body }) => callback(null, response, body),
+            err => callback(err, null, null)
+        );
     return this; // preserve old chainable return value
 };
 
@@ -131,19 +133,19 @@ EdgeGrid.prototype.send = function (callback) {
  * @return {Promise<{response: Dispatcher.ResponseData, body: string|Buffer}>}
  * @private
  */
-EdgeGrid.prototype._executeRequest = async function () {
+EdgeGrid.prototype._executeRequest = async function (requestOptions) {
     const logger = getLogger();
 
-    logger.debug({ url: this.request.url, method: this.request.method }, 'Starting request');
+    logger.debug({ url: requestOptions.url, method: requestOptions.method }, 'Starting request');
 
     // Passing body to undici for GET/HEAD causes a RequestContentLengthMismatchError.
     const NO_BODY_METHODS = ['GET', 'HEAD'];
-    const response = await request(this.request.url, {
-        method: this.request.method,
-        headers: this.request.headers,
-        body: NO_BODY_METHODS.includes((this.request.method || '').toUpperCase())
+    const response = await request(requestOptions.url, {
+        method: requestOptions.method,
+        headers: requestOptions.headers,
+        body: NO_BODY_METHODS.includes((requestOptions.method || '').toUpperCase())
             ? null
-            : (this.request.body || null),
+            : (requestOptions.body || null),
         maxRedirections: 0,
         // Only spread dispatcher when explicitly set; omitting it lets undici fall back to
         // its global dispatcher, allowing callers to opt out of EnvHttpProxyAgent.
@@ -166,7 +168,7 @@ EdgeGrid.prototype._executeRequest = async function () {
 
         // HTTP allows duplicate Location headers; take the first value.
         const location = Array.isArray(rawLocation) ? rawLocation[0] : rawLocation;
-        return this._handleRedirect(location);
+        return this._handleRedirect(location, requestOptions);
     }
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -175,7 +177,7 @@ EdgeGrid.prototype._executeRequest = async function () {
 
         // Treat as binary when responseType is explicitly set, or when the Content-Type is not a known text type.
         const isBinaryResponse =
-            this.request['responseType'] === 'arraybuffer' ||
+            requestOptions.responseType === 'arraybuffer' ||
             !isTextContentType(contentType);
 
         const body = isBinaryResponse
@@ -185,13 +187,17 @@ EdgeGrid.prototype._executeRequest = async function () {
         return { response, body };
     }
 
-    // Consume the error body to release the TCP socket before throwing.
-    await response.body.dump();
+    const rawContentType = response.headers['content-type'];
+    const contentType = Array.isArray(rawContentType) ? rawContentType[0] : (rawContentType || '');
+    const body = isTextContentType(contentType)
+        ? await response.body.text()
+        : Buffer.from(await response.body.arrayBuffer());
 
     const err = new Error(`Request failed with status code ${response.statusCode}`);
     err.statusCode = response.statusCode;
     err.headers = response.headers;
     err.response = response;
+    err.body = body;
     throw err;
 };
 
@@ -203,19 +209,18 @@ EdgeGrid.prototype._executeRequest = async function () {
  * @return {Promise<{response: Dispatcher.ResponseData, body: string|Buffer}>}
  * @private
  */
-EdgeGrid.prototype._handleRedirect = async function (location) {
+EdgeGrid.prototype._handleRedirect = async function (location, requestOptions) {
     let parsedUrl;
     try {
         parsedUrl = new URL(location);
     } catch {
-        parsedUrl = new URL(location, this.request.url);
+        parsedUrl = new URL(location, requestOptions.url);
     }
 
-    this.request.url = undefined;
-    this.request.path = parsedUrl.pathname + parsedUrl.search;
+    requestOptions.url = undefined;
+    requestOptions.path = parsedUrl.pathname + parsedUrl.search;
 
-    this.auth(this.request);
-    return this._executeRequest();
+    return this._executeRequest(this._prepareRequest(requestOptions));
 };
 
 /**

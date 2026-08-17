@@ -7,40 +7,23 @@ declare class EdgeGrid {
                 host?: string,
                 max_body?: number);
 
-    request: object;
     config: object;
     _dispatcher: Dispatcher | null | undefined;
 
     /**
-     * Executes the request prepared by auth() and returns a Promise.
+     * Authenticates and executes a request, returning a Promise.
      *
      * Resolves with { response, body } on a 2xx response.
-     * Rejects with an EdgeGrid.EdgeGridError on HTTP errors (4xx/5xx) or network failures.
+     * Rejects with an EdgeGridError on HTTP errors (4xx/5xx) or network failures.
      *
-     * If a callback is provided, the library operates in compatibility mode:
-     * the callback is invoked with (err, response, body) and `this` is returned
-     * for chaining, matching the pre-v5 behavior.
-     *
-     * @deprecated Passing a callback to send() is deprecated and will be removed
-     *             in a future major version. Use the Promise API instead.
      */
-    send(): Promise<EdgeGrid.SendResult>;
+    send(request: object): Promise<EdgeGrid.SendResult>;
     /** @deprecated Use the Promise overload instead. Callback support will be removed in a future major version. */
-    send(callback: (
+    send(request: object, callback: (
         error: EdgeGrid.EdgeGridError | null,
         response?: Dispatcher.ResponseData | null,
         body?: string | Buffer | null
     ) => void): this;
-
-    /**
-     * Builds the request using the properties of the local config Object.
-     *
-     * @param req The request Object. Can optionally contain a
-     *            'headersToSign' property: An ordered list of header names
-     *            that will be included in the signature.
-     * @return EdgeGrid object (self)
-     */
-    auth(req: object): this;
 
     enableLogging(option: boolean | object): this;
 }
@@ -54,6 +37,8 @@ declare namespace EdgeGrid {
         headers?: Record<string, string | string[]>;
         /** Full undici ResponseData for advanced consumers. Present only for HTTP errors. */
         response?: Dispatcher.ResponseData;
+        /** Response body. Present only for HTTP errors. */
+        body?: string | Buffer;
     }
 
     /** Resolved value of the Promise returned by send(). */

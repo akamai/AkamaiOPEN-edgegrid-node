@@ -5,20 +5,21 @@
 ### Breaking Changes
 
 * Replaced `axios` with `undici` as the HTTP client. Removed `axios`, `follow-redirects`, and `proxy-from-env` dependencies.
-* `send()` now returns a `Promise<{ response, body }>` by default. Passing an optional callback retains the Node-style `(err, response, body)` signature for incremental migration. **The callback form is deprecated and will be removed in a future major version.**
+* `auth()` has been removed. Pass the request directly to `send(request[, callback])`; request state is now local to each `send()` call, allowing one `EdgeGrid` instance to safely process overlapping requests.
+* `send(request)` returns a `Promise<{ response, body }>` by default. Passing an optional callback as the second parameter retains the Node-style `(err, response, body)` signature for incremental migration. **The callback form is deprecated and will be removed in a future major version.**
 * The `response` object is now an undici `Dispatcher.ResponseData`. Use `response.statusCode` instead of the former `response.status`.
-* HTTP errors (4xx, 5xx) now reject the Promise with an `EdgeGridError` that includes `err.statusCode` and `err.headers`. Previously axios threw with `err.response.data`. In callback mode, `err` is passed as the first argument as before.
-* Binary responses now resolve as a native `Buffer` in `body`. The library treats any response whose `Content-Type` is not a known text type (`text/*`, `application/json`, `application/xml`, `application/javascript`, `*+json`, `*+xml`) as binary. 
-  This replaces the previous explicit list of `gzip`, `tar`, and `octet-stream`. Previously binary data was only accessible via the axios-specific `response.data`.
-* The `proxy` option in `auth()` is no longer supported. Configure proxy via `HTTP_PROXY` / `HTTPS_PROXY` environment variables or by assigning `eg._dispatcher = new ProxyAgent(url)`.
-* Minimum supported Node.js version is now **v22**.
+* HTTP errors (4xx, 5xx) now reject the Promise with an `EdgeGridError` that includes `err.statusCode`, `err.headers`, and `err.body`.
+  This replaces Axios-specific error handling (previously accessed via `err.response.data`). In callback mode, `err` is passed as the first argument as before.
+* Binary responses now resolve as a native `Buffer` in `body`. The library now treats any response whose `Content-Type` is not a known text type as binary, replacing the previous explicit list of `gzip`, `tar`, and `octet-stream`.
+  Previously, binary data was only accessible via `response.data`.
+* The request `proxy` option is no longer supported. Configure proxy via `HTTP_PROXY` / `HTTPS_PROXY` environment variables or by assigning `eg._dispatcher = new ProxyAgent(url)`.
 
 ### Features/Enhancements
 
-* Binary content-type detection now uses a text-type whitelist: any response not matching a known text MIME type is returned as a `Buffer`, so unknown or future binary types are handled automatically without code changes.
+* `Uint8Array` request bodies with `application/gzip` or `application/tar+gzip` are preserved while EdgeGrid authentication is generated.
 * Proxy support via `HTTP_PROXY` / `HTTPS_PROXY` environment variables works automatically with no configuration required.
-* Updated TypeScript declarations: `send()` typed as `Promise<SendResult>` with optional callback overload, added `EdgeGridError` and `SendResult` interfaces in `EdgeGrid` namespace.
-
+* Updated CommonJS TypeScript declarations: `send()` is typed as `Promise<EdgeGrid.SendResult>` with an optional callback overload. `EdgeGridError` and `SendResult` are available as merged declaration types.
+* Minimum supported Node.js version is now **v22**.
 
 ## 4.0.4 (Jul 2, 2026)
 
