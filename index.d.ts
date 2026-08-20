@@ -15,11 +15,16 @@ declare class EdgeGrid {
      *
      * Resolves with { response, body } on a 2xx response.
      * Rejects with an EdgeGridError on HTTP errors (4xx/5xx) or network failures.
-     *
      */
-    send(request: object): Promise<EdgeGrid.SendResult>;
-    /** @deprecated Use the Promise overload instead. Callback support will be removed in a future major version. */
-    send(request: object, callback: (
+    send(request: { path: string; [key: string]: unknown }): Promise<EdgeGrid.SendResult>;
+    /**
+     * @deprecated Use `send(request)` (Promise API) instead.
+     * Callback support will be removed in a future major version.
+     *
+     * Compatibility mode: the callback is invoked with (err, response, body) and `this` is returned
+     * for chaining, matching the pre-v5 behavior.
+     */
+    send(request: { path: string; [key: string]: unknown }, callback: (
         error: EdgeGrid.EdgeGridError | null,
         response?: Dispatcher.ResponseData | null,
         body?: string | Buffer | null

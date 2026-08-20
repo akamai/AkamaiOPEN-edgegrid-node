@@ -108,6 +108,12 @@ EdgeGrid.prototype._prepareRequest = function (req) {
  * @return {Promise<{response, body}>|EdgeGrid}  Promise when no callback; `this` otherwise.
  */
 EdgeGrid.prototype.send = function (requestOptions, callback) {
+    if (requestOptions === undefined || requestOptions === null || typeof requestOptions !== 'object') {
+        throw new TypeError('requestOptions must be an object');
+    }
+    if (!requestOptions.path) {
+        throw new TypeError('requestOptions.path is required');
+    }
     if (callback !== undefined && typeof callback !== 'function') {
         throw new TypeError('callback must be a function');
     }
@@ -206,6 +212,7 @@ EdgeGrid.prototype._executeRequest = async function (requestOptions) {
  * for the new URL and retrying the request.
  *
  * @param  {string} location  Resolved value of the Location header.
+ * @param  {Object} requestOptions  Original request options, which will be modified for the redirect.
  * @return {Promise<{response: Dispatcher.ResponseData, body: string|Buffer}>}
  * @private
  */

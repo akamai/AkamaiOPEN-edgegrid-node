@@ -35,19 +35,13 @@ module.exports = {
             isTarball = this.isBinaryBundle(preparedBody, request.headers && request.headers['Content-Type']);
 
         if (typeof preparedBody === 'object' && !isTarball) {
-            let postDataNew = '',
-                key;
-
             logger.info('Body content is type Object, transforming to POST data');
 
-            for (key in preparedBody) {
-                postDataNew += key + '=' + encodeURIComponent(JSON.stringify(preparedBody[key])) + '&';
+            const parts = [];
+            for (const key in preparedBody) {
+                parts.push(key + '=' + encodeURIComponent(JSON.stringify(preparedBody[key])));
             }
-
-            // Strip trailing ampersand
-            postDataNew = postDataNew.replace(/&+$/, "");
-
-            preparedBody = postDataNew;
+            preparedBody = parts.join('&');
             request.body = preparedBody; // Is this required or being used?
         }
 

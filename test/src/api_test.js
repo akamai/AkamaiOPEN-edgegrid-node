@@ -460,6 +460,12 @@ describe('Api', function () {
             return this.api.send({ path: '/foo' });
         });
 
+        it('throws when called without a path', function () {
+            assert.throws(() => this.api.send({}), /requestOptions\.path is required/);
+            assert.throws(() => this.api.send(null), /requestOptions must be an object/);
+            assert.throws(() => this.api.send(), /requestOptions must be an object/);
+        });
+
         it('returns a Promise', function () {
             mockAgent.get('https://base.com')
                 .intercept({ path: '/foo', method: 'GET' })
@@ -551,6 +557,15 @@ describe('Api', function () {
 
         describe('when the initial request redirects', function () {
             it('correctly follows the redirect and re-signs the request', async function () {
+                // Spy on _prepareRequest to capture the Authorization header for each signed request.
+                const preparedRequests = [];
+                const originalPrepare = this.api._prepareRequest.bind(this.api);
+                this.api._prepareRequest = function (req) {
+                    const signed = originalPrepare(req);
+                    preparedRequests.push(signed);
+                    return signed;
+                };
+
                 // 302 → /bar
                 mockAgent.get('https://base.com')
                     .intercept({ path: '/foo', method: 'GET' })
@@ -566,6 +581,17 @@ describe('Api', function () {
                 const { response, body } = await this.api.send({ path: '/foo' });
                 assert.strictEqual(response.statusCode, 200);
                 assert.strictEqual(JSON.parse(body).someKey, 'value');
+
+                // Verify the redirect target was independently re-signed:
+                // _prepareRequest must have been called twice (original + redirect).
+                assert.strictEqual(preparedRequests.length, 2,
+                    '_prepareRequest must be called twice (original + redirect)');
+                const firstAuthHeader = preparedRequests[0].headers['Authorization'];
+                const redirectAuthHeader = preparedRequests[1].headers['Authorization'];
+                assert.ok(firstAuthHeader, 'First request must have an Authorization header');
+                assert.ok(redirectAuthHeader, 'Redirect request must have an Authorization header');
+                assert.notStrictEqual(redirectAuthHeader, firstAuthHeader,
+                    'Authorization header must be re-signed for the redirect target');
             });
 
             it('rejects when the redirect has no Location header', async function () {
