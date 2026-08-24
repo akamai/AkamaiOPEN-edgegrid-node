@@ -8,11 +8,11 @@ const eg = new EdgeGrid({
 
 expectType<EdgeGrid>(eg)
 
-var req = {
+var req: EdgeGrid.EdgeGridRequest = {
     path: '/identity-management/v3/user-profile',
     method: 'GET',
     headers: {},
     body: {}
 }
-expectType<Promise<{ response: import('undici').Dispatcher.ResponseData, body: string | Buffer }>>(eg.send(req))
+expectType<Promise<EdgeGrid.SendResult>>(eg.send(req))
 expectType<EdgeGrid>(eg.send(req, (error, resp, body) => console.log(body)))

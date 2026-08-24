@@ -86,16 +86,20 @@ EdgeGrid.prototype._prepareRequest = function (req) {
 };
 
 /**
- * Sends the request and returns a Promise that resolves with { response, body }.
+ * Sends the request and returns a Promise that resolves with { statusCode, headers, body, url }.
  *
  * On success (2xx) the Promise resolves with:
- *   - response  {Dispatcher.ResponseData}  The undici response object (statusCode, headers, …)
- *   - body      {string|Buffer}            Text for JSON/plain responses; Buffer for binary ones.
+ *   - statusCode  {number}           HTTP status code
+ *   - headers     {object}           Response headers
+ *   - body        {string|Buffer}    Text for JSON/plain responses; Buffer for binary ones.
+ *   - url         {string}           Final URL after any redirects
  *
  * On failure the Promise rejects with an EdgeGridError that carries:
- *   - err.statusCode  {number}             HTTP status code (absent for network errors)
- *   - err.headers     {object}             Response headers
- *   - err.response    {Dispatcher.ResponseData}  Full undici response for advanced consumers
+ *   - err.statusCode  {number}       HTTP status code (absent for network errors)
+ *   - err.headers     {object}       Response headers (absent for network errors)
+ *   - err.body        {string|Buffer} Response body (absent for network errors)
+ *   - err.url         {string}       URL that was requested
+ *   - err.cause       {Error}        Underlying network error (present for transport failures)
  *
  * Passing an optional callback enables compatibility mode: the callback is invoked
  * with the Node-style (err, response, body) signature and `this` is returned for
@@ -105,7 +109,7 @@ EdgeGrid.prototype._prepareRequest = function (req) {
  * @param  {Object} requestOptions Request options to authenticate and send.
  * @param  {Function} [callback]  Optional Node-style callback(err, response, body).
  *                                Deprecated — use the Promise API instead.
- * @return {Promise<{response, body}>|EdgeGrid}  Promise when no callback; `this` otherwise.
+ * @return {Promise<{statusCode, headers, body, url}>|EdgeGrid}  Promise when no callback; `this` otherwise.
  */
 EdgeGrid.prototype.send = function (requestOptions, callback) {
     if (requestOptions === undefined || requestOptions === null || typeof requestOptions !== 'object') {
@@ -127,7 +131,7 @@ EdgeGrid.prototype.send = function (requestOptions, callback) {
     // signature so existing call sites can migrate incrementally.
     promise
         .then(
-            ({ response, body }) => callback(null, response, body),
+            (result) => callback(null, result, result.body),
             err => callback(err, null, null)
         );
     return this; // preserve old chainable return value
@@ -136,7 +140,8 @@ EdgeGrid.prototype.send = function (requestOptions, callback) {
 /**
  * Async implementation of the HTTP dispatch.
  *
- * @return {Promise<{response: Dispatcher.ResponseData, body: string|Buffer}>}
+ * @param  {Object} requestOptions Signed request options from _prepareRequest.
+ * @return {Promise<{statusCode: number, headers: object, body: string|Buffer, url: string}>}
  * @private
  */
 EdgeGrid.prototype._executeRequest = async function (requestOptions) {
@@ -146,17 +151,24 @@ EdgeGrid.prototype._executeRequest = async function (requestOptions) {
 
     // Passing body to undici for GET/HEAD causes a RequestContentLengthMismatchError.
     const NO_BODY_METHODS = ['GET', 'HEAD'];
-    const response = await request(requestOptions.url, {
-        method: requestOptions.method,
-        headers: requestOptions.headers,
-        body: NO_BODY_METHODS.includes((requestOptions.method || '').toUpperCase())
-            ? null
-            : (requestOptions.body || null),
-        maxRedirections: 0,
-        // Only spread dispatcher when explicitly set; omitting it lets undici fall back to
-        // its global dispatcher, allowing callers to opt out of EnvHttpProxyAgent.
-        ...(this._dispatcher != null && { dispatcher: this._dispatcher }),
-    });
+    let response;
+    try {
+        response = await request(requestOptions.url, {
+            method: requestOptions.method,
+            headers: requestOptions.headers,
+            body: NO_BODY_METHODS.includes((requestOptions.method || '').toUpperCase())
+                ? null
+                : (requestOptions.body || null),
+            maxRedirections: 0,
+            // Only spread dispatcher when explicitly set; omitting it lets undici fall back to
+            // its global dispatcher, allowing callers to opt out of EnvHttpProxyAgent.
+            ...(this._dispatcher != null && { dispatcher: this._dispatcher }),
+        });
+    } catch (networkError) {
+        const err = new Error(networkError.message, { cause: networkError });
+        err.url = requestOptions.url;
+        throw err;
+    }
 
     logger.debug({ statusCode: response.statusCode }, 'Received response');
 
@@ -169,6 +181,7 @@ EdgeGrid.prototype._executeRequest = async function (requestOptions) {
         if (!rawLocation) {
             const err = new Error(`Redirect (${response.statusCode}) received without a Location header`);
             err.statusCode = response.statusCode;
+            err.url = requestOptions.url;
             throw err;
         }
 
@@ -190,7 +203,12 @@ EdgeGrid.prototype._executeRequest = async function (requestOptions) {
             ? Buffer.from(await response.body.arrayBuffer())
             : await response.body.text();
 
-        return { response, body };
+        return {
+            statusCode: response.statusCode,
+            headers: response.headers,
+            body,
+            url: requestOptions.url,
+        };
     }
 
     const rawContentType = response.headers['content-type'];
@@ -202,8 +220,8 @@ EdgeGrid.prototype._executeRequest = async function (requestOptions) {
     const err = new Error(`Request failed with status code ${response.statusCode}`);
     err.statusCode = response.statusCode;
     err.headers = response.headers;
-    err.response = response;
     err.body = body;
+    err.url = requestOptions.url;
     throw err;
 };
 
@@ -213,7 +231,7 @@ EdgeGrid.prototype._executeRequest = async function (requestOptions) {
  *
  * @param  {string} location  Resolved value of the Location header.
  * @param  {Object} requestOptions  Original request options, which will be modified for the redirect.
- * @return {Promise<{response: Dispatcher.ResponseData, body: string|Buffer}>}
+ * @return {Promise<{statusCode: number, headers: object, body: string|Buffer, url: string}>}
  * @private
  */
 EdgeGrid.prototype._handleRedirect = async function (location, requestOptions) {

@@ -61,13 +61,13 @@ const eg = new EdgeGrid({
 });
 
 try {
-  const { response, body } = await eg.send({
+  const { statusCode, body } = await eg.send({
     path: '/identity-management/v3/user-profile',
     method: 'GET',
     headers: { 'Accept': 'application/json' }
   });
 
-  console.log(response.statusCode); // 200
+  console.log(statusCode); // 200
   console.log(JSON.parse(body));
 } catch (err) {
   console.error(err.statusCode, err.message);
@@ -87,7 +87,7 @@ eg.send({
   headers: { 'Accept': 'application/json' }
 }, function (err, response, body) {
   if (err) return console.error(err);
-  console.log(response.statusCode); // note: statusCode, not the former response.status
+  console.log(response.statusCode); // note: statusCode is now a direct property of the result
   console.log(body);
 });
 ```
@@ -109,7 +109,7 @@ const [users, profile] = await Promise.all([
 When entering query parameters use the `qs` property in the request passed to `send()`. Set up the parameters as name-value pairs in an object.
 
 ```javascript
-const { response, body } = await eg.send({
+const { statusCode, body } = await eg.send({
     path: '/identity-management/v3/user-profile',
     method: 'GET',
     headers: {},
@@ -128,7 +128,7 @@ Enter request headers as name-value pairs in an object.
 > **Note:** You don't need to include the `Content-Type` and `Content-Length` headers. The authentication layer adds these values.
 
 ```javascript
-const { response, body } = await eg.send({
+const { statusCode, body } = await eg.send({
   path: '/identity-management/v3/user-profile',
   method: 'GET',
   headers: {
@@ -142,7 +142,7 @@ const { response, body } = await eg.send({
 Provide the request body as an object or as a POST data formatted string.
 
 ```javascript
-const { response, body } = await eg.send({
+const { statusCode, body } = await eg.send({
     path: '/identity-management/v3/user-profile/basic-info',
     method: 'PUT',
     headers: {},
@@ -176,11 +176,11 @@ const { body } = await eg.send({
 fs.writeFileSync(`./${fileName}`, body); // body is already a Buffer
 
 // Callback style (compatibility)
-eg.auth({
+eg.send({
   path: `/invoicing-api/v2/contracts/${contractId}/invoices/${invoiceNumber}/files/${fileName}`,
   method: 'GET',
   headers: { 'Accept': 'application/gzip' }
-}).send((err, response, body) => {
+}, (err, response, body) => {
   if (err) return console.error(err);
   fs.writeFile(`./${fileName}`, body, (writeErr) => {
     if (writeErr) return console.error(writeErr);
@@ -271,7 +271,7 @@ The library uses [`undici`](https://github.com/nodejs/undici)'s `EnvHttpProxyAge
   eg._dispatcher = new ProxyAgent('https://username:password@my.proxy.com:3128');
 
   eg.send({ path: '/identity-management/v3/user-profile', method: 'GET' })
-    .then(({ response, body }) => console.log(response.statusCode, body))
+    .then(({ statusCode, body }) => console.log(statusCode, body))
     .catch(err => console.error(err));
   ```
 
@@ -302,7 +302,7 @@ eg.auth({ path: '/foo' }).send(function (err, response, body) {
 
 // v5 (undici) — Promise style
 try {
-  const { response, body } = await eg.send({ path: '/foo' });
+  const { statusCode, body } = await eg.send({ path: '/foo' });
 } catch (err) {
   console.log(err.statusCode); // HTTP status; undefined for network errors (connection refused, DNS failure etc.)
   console.log(err.headers);    // response headers
@@ -358,8 +358,8 @@ eg.send({ path: '/foo', method: 'GET' }, function (err, response, body) {
 
 // After (Promise)
 try {
-  const { response, body } = await eg.send({ path: '/foo', method: 'GET' });
-  console.log(response.statusCode, body);
+  const { statusCode, body } = await eg.send({ path: '/foo', method: 'GET' });
+  console.log(statusCode, body);
 } catch (err) {
   console.error(err.statusCode, err.message);
 }
@@ -379,8 +379,8 @@ eg.send({ path: '/foo' }, function (err, response, body) {
 
 // After (Promise) — single catch block handles all errors for the whole async flow
 try {
-  const { response, body } = await eg.send({ path: '/foo' });
-  console.log(response.statusCode, body); // happy path
+  const { statusCode, body } = await eg.send({ path: '/foo' });
+  console.log(statusCode, body); // happy path
 } catch (err) {
   console.error(err.statusCode, err.message);
 }

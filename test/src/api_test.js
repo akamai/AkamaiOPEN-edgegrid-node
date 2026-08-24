@@ -477,15 +477,17 @@ describe('Api', function () {
             return result;
         });
 
-        it('resolves with { response, body } on a 2xx response', async function () {
+        it('resolves with { statusCode, headers, body, url } on a 2xx response', async function () {
             mockAgent.get('https://base.com')
                 .intercept({ path: '/foo', method: 'GET' })
                 .reply(200, JSON.stringify({ status: 'active', id: 42 }), {
                     headers: { 'content-type': 'application/json' }
                 });
 
-            const { response, body } = await this.api.send({ path: '/foo' });
-            assert.strictEqual(response.statusCode, 200);
+            const { statusCode, headers, body, url } = await this.api.send({ path: '/foo' });
+            assert.strictEqual(statusCode, 200);
+            assert.ok(headers, 'headers must be present');
+            assert.strictEqual(url, 'https://base.com/foo');
             const data = JSON.parse(body);
             assert.strictEqual(data.status, 'active');
             assert.strictEqual(data.id, 42);
@@ -499,8 +501,8 @@ describe('Api', function () {
                         headers: { 'content-type': 'application/json' }
                     });
 
-                const { response, body } = await this.api.send({ path: '/foo' });
-                assert.strictEqual(response.statusCode, 200);
+                const { statusCode, body } = await this.api.send({ path: '/foo' });
+                assert.strictEqual(statusCode, 200);
                 assert.strictEqual(JSON.parse(body).foo, 'bar');
             });
         });
@@ -513,8 +515,8 @@ describe('Api', function () {
                         headers: { 'content-type': 'application/json' }
                     });
 
-                const { response, body } = await this.api.send({ path: '/foo', method: 'POST' });
-                assert.strictEqual(response.statusCode, 200);
+                const { statusCode, body } = await this.api.send({ path: '/foo', method: 'POST' });
+                assert.strictEqual(statusCode, 200);
                 assert.strictEqual(JSON.parse(body).foo, 'bar');
             });
         });
@@ -578,8 +580,8 @@ describe('Api', function () {
                         headers: { 'content-type': 'application/json' }
                     });
 
-                const { response, body } = await this.api.send({ path: '/foo' });
-                assert.strictEqual(response.statusCode, 200);
+                const { statusCode, body } = await this.api.send({ path: '/foo' });
+                assert.strictEqual(statusCode, 200);
                 assert.strictEqual(JSON.parse(body).someKey, 'value');
 
                 // Verify the redirect target was independently re-signed:
@@ -614,16 +616,17 @@ describe('Api', function () {
             it('rejects with an error containing response details', async function () {
                 mockAgent.get('https://base.com')
                     .intercept({ path: '/foo', method: 'GET' })
-                    .reply(401, 'Unauthorized', { headers: { 'www-authenticate': 'Bearer' } });
+                    .reply(401, 'Unauthorized', { headers: { 'www-authenticate': 'Bearer', 'content-type': 'text/plain' } });
 
                 await assert.rejects(
                     () => this.api.send({ path: '/foo' }),
                     (err) => {
                         assert.strictEqual(err.statusCode, 401);
                         assert.ok(err.headers, 'err.headers must be present');
-                        assert.ok(err.response, 'err.response must be present');
-                        assert.ok(Buffer.isBuffer(err.body), 'err.body must preserve binary responses');
-                        assert.strictEqual(err.body.toString(), 'Unauthorized');
+                        assert.strictEqual(typeof err.body, 'string');
+                        assert.strictEqual(err.body, 'Unauthorized');
+                        assert.strictEqual(err.url, 'https://base.com/foo');
+                        assert.ok(!err.response, 'err.response must not be present');
                         return true;
                     }
                 );
@@ -638,7 +641,12 @@ describe('Api', function () {
 
                 await assert.rejects(
                     () => this.api.send({ path: '/foo' }),
-                    { message: 'something awful happened' }
+                    (err) => {
+                        assert.strictEqual(err.message, 'something awful happened');
+                        assert.ok(err.cause, 'network error must carry the underlying cause');
+                        assert.strictEqual(err.url, 'https://base.com/foo');
+                        return true;
+                    }
                 );
             });
         });
@@ -690,7 +698,7 @@ describe('Api', function () {
                     return {
                         then: function (onFulfilled) {
                             try {
-                                onFulfilled({ response: {}, body: '' });
+                                onFulfilled({ statusCode: 200, headers: {}, body: '', url: '' });
                                 return { catch: function () {} };
                             } catch (err) {
                                 return {
