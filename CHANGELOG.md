@@ -6,21 +6,18 @@
 
 * Replaced `axios` with `undici` as the HTTP client. Removed `axios`, `follow-redirects`, and `proxy-from-env` dependencies.
 * `auth()` has been removed. Pass the request directly to `send(request[, callback])`; request state is now local to each `send()` call, allowing one `EdgeGrid` instance to safely process overlapping requests.
-* `send(request)` now resolves with `{ statusCode, headers, body, url }` — a clean value type decoupled from undici internals. Use `statusCode` directly instead of `response.statusCode`.
-* `EdgeGridError` no longer carries the raw undici `response` object. It now exposes `err.statusCode`, `err.headers`, `err.body`, `err.url` (the requested URL), and `err.cause` (the underlying transport error for network-level failures).
-* Added `EdgeGridRequest` as a named TypeScript interface in the `EdgeGrid` namespace. The `send()` overloads now accept `EdgeGrid.EdgeGridRequest` instead of a plain object, giving callers explicit auto-complete for all supported request fields.
-* `send(request)` returns a `Promise<EdgeGrid.SendResult>` by default. Passing an optional callback as the second parameter retains the Node-style `(err, response, body)` signature for incremental migration. **The callback form is deprecated and will be removed in a future major version.**
-* HTTP errors (4xx, 5xx) now reject the Promise with an `EdgeGridError` that includes `err.statusCode`, `err.headers`, and `err.body`.
-  This replaces Axios-specific error handling (previously accessed via `err.response.data`). In callback mode, `err` is passed as the first argument as before.
-* Binary responses now resolve as a native `Buffer` in `body`. The library now treats any response whose `Content-Type` is not a known text type as binary, replacing the previous explicit list of `gzip`, `tar`, and `octet-stream`.
-  Previously, binary data was only accessible via `response.data`.
+* `send(request)` now returns a `Promise<EdgeGrid.SendResult>` that resolves with `{ statusCode, headers, body, url }` on success. Previously `send()` did not return a Promise. Replace `response.status` (axios) with `statusCode` directly on the result.
+* HTTP errors (4xx, 5xx) reject the Promise with an `EdgeGridError` carrying `err.statusCode`, `err.headers`, `err.body`, `err.url` (the final URL after any redirects), and `err.cause` (the underlying transport error for network-level failures). 
+  This replaces the axios error shape (previously `err.response.status` and `err.response.data`). In callback mode, `err` is passed as the first argument as before.
+* Passing an optional callback as the second parameter to `send()` retains the Node-style `(err, response, body)` signature for incremental migration. **The callback form is deprecated and will be removed in a future major version.**
+* Binary responses are returned as a native `Buffer` in `body`. The library automatically treats any response whose `Content-Type` is not a known text type as binary; previously binary data was only accessible via `response.data` with an explicit `responseType: 'arraybuffer'` option.
 * The request `proxy` option is no longer supported. Configure proxy via `HTTP_PROXY` / `HTTPS_PROXY` environment variables or by assigning `eg._dispatcher = new ProxyAgent(url)`.
 
 ### Features/Enhancements
 
 * `Uint8Array` request bodies with `application/gzip` or `application/tar+gzip` are preserved while EdgeGrid authentication is generated.
 * Proxy support via `HTTP_PROXY` / `HTTPS_PROXY` environment variables works automatically with no configuration required.
-* Updated CommonJS TypeScript declarations: `send()` is typed as `Promise<EdgeGrid.SendResult>` with an optional deprecated callback overload. `EdgeGridError`, `SendResult`, and `EdgeGridRequest` are available as merged declaration types in the `EdgeGrid` namespace.
+* Added `EdgeGridRequest`, `SendResult`, and `EdgeGridError` as named TypeScript interfaces in the `EdgeGrid` namespace, giving callers explicit auto-complete for all supported fields. `send()` is typed as `Promise<EdgeGrid.SendResult>` with an optional deprecated callback overload.
 * Minimum supported Node.js version is now **v22**.
 
 ## 4.0.4 (Jul 2, 2026)

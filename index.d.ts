@@ -1,5 +1,3 @@
-import type { Dispatcher } from 'undici';
-
 declare class EdgeGrid {
     constructor(clientTokenOrOptions: string | object,
                 clientSecret?: string,
@@ -8,7 +6,7 @@ declare class EdgeGrid {
                 max_body?: number);
 
     config: object;
-    _dispatcher: Dispatcher | null | undefined;
+    _dispatcher: EdgeGrid.HttpDispatcher | null | undefined;
 
     /**
      * Authenticates and executes a request, returning a Promise.
@@ -34,6 +32,15 @@ declare class EdgeGrid {
 }
 
 declare namespace EdgeGrid {
+    /**
+     * Minimal structural interface for an HTTP dispatcher (e.g. undici's Dispatcher,
+     * ProxyAgent, or MockAgent). Typed structurally so callers are not forced to
+     * take a direct dependency on undici.
+     */
+    export interface HttpDispatcher {
+        dispatch(options: object, handler: object): boolean;
+    }
+
     /** Request options passed to send(). */
     export interface EdgeGridRequest {
         /** API path, e.g. '/identity-management/v3/user-profile'. */
@@ -78,7 +85,7 @@ declare namespace EdgeGrid {
         body?: string | Buffer;
         /** URL that was requested when the error occurred. */
         url?: string;
-        /** Underlying transport error from undici, present for network-level failures. */
+        /** Underlying transport-layer error, present for network-level failures. */
         cause?: Error;
     }
 }
