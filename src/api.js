@@ -22,6 +22,26 @@ function isTextContentType(contentType) {
 }
 
 /**
+ * Reads the response body, wrapping any transport error with url context.
+ *
+ * @param  {object}  responseBody  The undici response body stream.
+ * @param  {string}  url           The request URL, for error context.
+ * @param  {boolean} isBinary      When true, reads as a Buffer; otherwise reads as a string.
+ * @return {Promise<string|Buffer>}
+ */
+async function consumeBody(responseBody, url, isBinary) {
+    try {
+        return isBinary
+            ? Buffer.from(await responseBody.arrayBuffer())
+            : await responseBody.text();
+    } catch (networkError) {
+        const err = new Error(networkError.message, { cause: networkError });
+        err.url = url;
+        throw err;
+    }
+}
+
+/**
  *
  * @param {String} client_token      The client token value from the .edgerc file.
  * @param {String} client_secret     The client secret value from the .edgerc file.
@@ -176,7 +196,13 @@ EdgeGrid.prototype._executeRequest = async function (requestOptions) {
         const rawLocation = response.headers['location'];
         // Consume the redirect body to release the TCP socket back to the pool
         // before opening a new connection to the redirect target.
-        await response.body.dump();
+        try {
+            await response.body.dump();
+        } catch (networkError) {
+            const err = new Error(networkError.message, { cause: networkError });
+            err.url = requestOptions.url;
+            throw err;
+        }
 
         if (!rawLocation) {
             const err = new Error(`Redirect (${response.statusCode}) received without a Location header`);
@@ -199,9 +225,7 @@ EdgeGrid.prototype._executeRequest = async function (requestOptions) {
             requestOptions.responseType === 'arraybuffer' ||
             !isTextContentType(contentType);
 
-        const body = isBinaryResponse
-            ? Buffer.from(await response.body.arrayBuffer())
-            : await response.body.text();
+        const body = await consumeBody(response.body, requestOptions.url, isBinaryResponse);
 
         return {
             statusCode: response.statusCode,
@@ -213,9 +237,7 @@ EdgeGrid.prototype._executeRequest = async function (requestOptions) {
 
     const rawContentType = response.headers['content-type'];
     const contentType = Array.isArray(rawContentType) ? rawContentType[0] : (rawContentType || '');
-    const body = isTextContentType(contentType)
-        ? await response.body.text()
-        : Buffer.from(await response.body.arrayBuffer());
+    const body = await consumeBody(response.body, requestOptions.url, !isTextContentType(contentType));
 
     const err = new Error(`Request failed with status code ${response.statusCode}`);
     err.statusCode = response.statusCode;
