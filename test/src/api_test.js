@@ -1,6 +1,6 @@
 const assert = require('assert'),
-    nock = require('nock'),
     path = require('path'),
+    { MockAgent } = require('undici'),
     Api = require('../../src/api');
 
 const EdgeGrid = require("../../index");
@@ -211,50 +211,46 @@ describe('Api', function () {
         });
     });
 
-    describe('#auth', function () {
-        it('should be chainable', function () {
-            assert.deepStrictEqual(this.api, this.api.auth({path: '/foo'}));
-        });
-
+    describe('#_prepareRequest', function () {
         describe('when minimal request options are passed', function () {
             beforeEach(function () {
-                this.api.auth({
+                this.request = this.api._prepareRequest({
                     path: '/foo'
                 });
             });
 
             it('adds an Authorization header to the request it is passed', function () {
-                assert.strictEqual(typeof this.api.request.headers.Authorization === 'string', true);
+                assert.strictEqual(typeof this.request.headers.Authorization === 'string', true);
             });
 
             it('ensures a default Content-Type of application/json', function () {
-                assert.strictEqual(this.api.request.headers['Content-Type'], 'application/json');
+                assert.strictEqual(this.request.headers['Content-Type'], 'application/json');
             });
 
             it('ensures a default Accept of application/json', function () {
-                assert.strictEqual(this.api.request.headers['Accept'], 'application/json');
+                assert.strictEqual(this.request.headers['Accept'], 'application/json');
             });
 
             it('ensures a default GET method', function () {
-                assert.strictEqual(this.api.request.method, 'GET');
+                assert.strictEqual(this.request.method, 'GET');
             });
 
             it('ensures a default undefined body', function () {
-                assert.strictEqual(this.api.request.body, undefined);
+                assert.strictEqual(this.request.body, undefined);
             });
 
             it('ensures a url is properly declared', function () {
-                assert.strictEqual(this.api.request.url, 'https://base.com/foo');
+                assert.strictEqual(this.request.url, 'https://base.com/foo');
             });
 
             it('ensures no User-Agent is added when AkamaiCLI env variables not set', function () {
-                assert.ok(!this.api.request.headers.hasOwnProperty('User-Agent'));
+                assert.ok(!this.request.headers.hasOwnProperty('User-Agent'));
             });
         });
 
         describe('when more specific request options are passed', function () {
             beforeEach(function () {
-                this.api.auth({
+                this.request = this.api._prepareRequest({
                     path: '/foo',
                     method: 'POST',
                     body: {
@@ -269,38 +265,37 @@ describe('Api', function () {
             });
 
             it('adds an Authorization header to the request it is passed', function () {
-                assert.strictEqual(typeof this.api.request.headers.Authorization === 'string', true);
+                assert.strictEqual(typeof this.request.headers.Authorization === 'string', true);
             });
 
             it('ensures a default Content-Type of application/json', function () {
-                assert.strictEqual(this.api.request.headers['Content-Type'], 'application/json');
+                assert.strictEqual(this.request.headers['Content-Type'], 'application/json');
             });
 
             it('uses the specified POST method', function () {
-                assert.strictEqual(this.api.request.method, 'POST');
+                assert.strictEqual(this.request.method, 'POST');
             });
 
             it('uses the specified body parsed as a JSON string', function () {
-                console.log("BODY: ", this.api.request.body);
-                assert.strictEqual(this.api.request.body, '{"foo":"bar"}');
+                assert.strictEqual(this.request.body, '{"foo":"bar"}');
             });
 
             it('extends the default request options with any others specified', function () {
-                assert.strictEqual(this.api.request.somethingArbitrary, 'someValue');
+                assert.strictEqual(this.request.somethingArbitrary, 'someValue');
             });
 
             it('ensures provided User-Agent header is preserved', function () {
-                assert.strictEqual(this.api.request.headers['User-Agent'], 'testUserAgent');
+                assert.strictEqual(this.request.headers['User-Agent'], 'testUserAgent');
             });
 
             it('ensures provided Accept header is preserved', function () {
-                assert.strictEqual(this.api.request.headers['Accept'], 'text/html');
+                assert.strictEqual(this.request.headers['Accept'], 'text/html');
             });
         });
 
         describe("when gzip response format is expected", function () {
             beforeEach(function () {
-                this.api.auth({
+                this.request = this.api._prepareRequest({
                     path: '/foo',
                     body: 'someBody',
                     headers: {
@@ -311,25 +306,25 @@ describe('Api', function () {
             });
 
             it('adds an Authorization header to the request it is passed', function () {
-                assert.strictEqual(typeof this.api.request.headers.Authorization === 'string', true);
+                assert.strictEqual(typeof this.request.headers.Authorization === 'string', true);
             });
 
             it('ensures a default GET method', function () {
-                assert.strictEqual(this.api.request.method, 'GET');
+                assert.strictEqual(this.request.method, 'GET');
             });
 
             it('ensures the specified body is not modified', function () {
-                assert.strictEqual(this.api.request.body, 'someBody');
+                assert.strictEqual(this.request.body, 'someBody');
             });
 
             it('should return response as buffer', function () {
-                assert.strictEqual(this.api.request["responseType"], "arraybuffer");
+                assert.strictEqual(this.request.responseType, "arraybuffer");
             });
         });
 
         describe("when tar+gzip response format is expected", function () {
             beforeEach(function () {
-                this.api.auth({
+                this.request = this.api._prepareRequest({
                     path: '/foo',
                     body: 'someBody',
                     headers: {
@@ -340,19 +335,34 @@ describe('Api', function () {
             });
 
             it('adds an Authorization header to the request it is passed', function () {
-                assert.strictEqual(typeof this.api.request.headers.Authorization === 'string', true);
+                assert.strictEqual(typeof this.request.headers.Authorization === 'string', true);
             });
 
             it('ensures a default GET method', function () {
-                assert.strictEqual(this.api.request.method, 'GET');
+                assert.strictEqual(this.request.method, 'GET');
             });
 
             it('ensures the specified body is not modified', function () {
-                assert.strictEqual(this.api.request.body, 'someBody');
+                assert.strictEqual(this.request.body, 'someBody');
             });
 
             it('should return response as buffer', function () {
-                assert.strictEqual(this.api.request["responseType"], "arraybuffer");
+                assert.strictEqual(this.request.responseType, "arraybuffer");
+            });
+        });
+
+        describe('when a tar+gzip bundle is uploaded', function () {
+            it('preserves the binary body while preparing authentication', function () {
+                const body = new Uint8Array([0x1f, 0x8b, 0x08, 0x00]);
+
+                this.request = this.api._prepareRequest({
+                    path: '/bundle',
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/tar+gzip' },
+                    body
+                });
+
+                assert.strictEqual(this.request.body, body);
             });
         });
 
@@ -373,19 +383,19 @@ describe('Api', function () {
 
             describe("when no User-Agent set in the request", function () {
                 beforeEach(function () {
-                    this.api.auth({
+                    this.request = this.api._prepareRequest({
                         path: '/foo'
                     });
                 });
 
                 it("should set User-Agent", function () {
-                    assert.strictEqual(this.api.request.headers['User-Agent'], 'AkamaiCLI/1.0.0 AkamaiCLI-command/0.0.1');
+                    assert.strictEqual(this.request.headers['User-Agent'], 'AkamaiCLI/1.0.0 AkamaiCLI-command/0.0.1');
                 });
             });
 
             describe("when User-Agent is already in the request", function () {
                 beforeEach(function () {
-                    this.api.auth({
+                    this.request = this.api._prepareRequest({
                         path: '/foo',
                         headers: {
                             'User-Agent': 'testAgent'
@@ -394,7 +404,7 @@ describe('Api', function () {
                 });
 
                 it("should append to already present User-Agent header", function () {
-                    assert.strictEqual(this.api.request.headers['User-Agent'], 'testAgent AkamaiCLI/1.0.0 AkamaiCLI-command/0.0.1');
+                    assert.strictEqual(this.request.headers['User-Agent'], 'testAgent AkamaiCLI/1.0.0 AkamaiCLI-command/0.0.1');
                 });
             });
 
@@ -402,13 +412,13 @@ describe('Api', function () {
                 beforeEach(function () {
                     process.env['AKAMAI_CLI_COMMAND'] = '';
                     process.env['AKAMAI_CLI_COMMAND_VERSION'] = '';
-                    this.api.auth({
+                    this.request = this.api._prepareRequest({
                         path: '/foo'
                     });
                 });
 
                 it("should only set AkamaiCLI/version User-Agent", function () {
-                    assert.strictEqual(this.api.request.headers['User-Agent'], 'AkamaiCLI/1.0.0');
+                    assert.strictEqual(this.request.headers['User-Agent'], 'AkamaiCLI/1.0.0');
                 });
             });
 
@@ -416,114 +426,315 @@ describe('Api', function () {
                 beforeEach(function () {
                     process.env['AKAMAI_CLI'] = '';
                     process.env['AKAMAI_CLI_VERSION'] = '';
-                    this.api.auth({
+                    this.request = this.api._prepareRequest({
                         path: '/foo'
                     });
                 });
 
                 it("should only set AkamaiCLI/version User-Agent", function () {
-                    assert.strictEqual(this.api.request.headers['User-Agent'], 'AkamaiCLI-command/0.0.1');
+                    assert.strictEqual(this.request.headers['User-Agent'], 'AkamaiCLI-command/0.0.1');
                 });
             });
         });
     });
 
     describe('#send', function () {
+        // Each send() test gets a fresh MockAgent so requests are isolated.
+        let mockAgent;
 
-        it('should be chainable', function () {
-            assert.deepStrictEqual(this.api, this.api.auth({path: '/foo'}).send());
+        beforeEach(function () {
+            mockAgent = new MockAgent();
+            mockAgent.disableNetConnect();
+            this.api._dispatcher = mockAgent;
         });
 
-        describe('when authentication is done with a simple options object specifying only a path', function () {
-            beforeEach(function () {
-                nock('https://base.com')
-                    .get('/foo')
-                    .reply(200, {
-                        foo: 'bar'
+        afterEach(async function () {
+            await mockAgent.close();
+        });
+
+        it('accepts request options directly', function () {
+            mockAgent.get('https://base.com')
+                .intercept({ path: '/foo', method: 'GET' })
+                .reply(200, '{}', { headers: { 'content-type': 'application/json' } });
+
+            return this.api.send({ path: '/foo' });
+        });
+
+        it('throws when called without a path', function () {
+            assert.throws(() => this.api.send({}), /requestOptions\.path is required/);
+            assert.throws(() => this.api.send(null), /requestOptions must be an object/);
+            assert.throws(() => this.api.send(), /requestOptions must be an object/);
+        });
+
+        it('returns a Promise', function () {
+            mockAgent.get('https://base.com')
+                .intercept({ path: '/foo', method: 'GET' })
+                .reply(200, '{}', { headers: { 'content-type': 'application/json' } });
+
+            const result = this.api.send({ path: '/foo' });
+            assert.ok(result instanceof Promise, 'send() must return a Promise');
+            // Return the Promise so Mocha marks the test as failed if it rejects.
+            return result;
+        });
+
+        it('resolves with { statusCode, headers, body, url } on a 2xx response', async function () {
+            mockAgent.get('https://base.com')
+                .intercept({ path: '/foo', method: 'GET' })
+                .reply(200, JSON.stringify({ status: 'active', id: 42 }), {
+                    headers: { 'content-type': 'application/json' }
+                });
+
+            const { statusCode, headers, body, url } = await this.api.send({ path: '/foo' });
+            assert.strictEqual(statusCode, 200);
+            assert.ok(headers, 'headers must be present');
+            assert.strictEqual(url, 'https://base.com/foo');
+            const data = JSON.parse(body);
+            assert.strictEqual(data.status, 'active');
+            assert.strictEqual(data.id, 42);
+        });
+
+        describe('when authentication is done with a simple GET request', function () {
+            it('resolves with the response body', async function () {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(200, JSON.stringify({ foo: 'bar' }), {
+                        headers: { 'content-type': 'application/json' }
                     });
-            });
 
-            it('sends the HTTP GET request created by #auth', function (done) {
-                this.api.auth({
-                    path: '/foo'
-                });
-
-                this.api.send(function (err, resp, body) {
-                    assert.strictEqual(JSON.parse(body).foo, 'bar');
-                    done();
-                });
+                const { statusCode, body } = await this.api.send({ path: '/foo' });
+                assert.strictEqual(statusCode, 200);
+                assert.strictEqual(JSON.parse(body).foo, 'bar');
             });
         });
 
-        describe('when authentication is done with a more complex options object specifying only a path', function () {
-            beforeEach(function () {
-                nock('https://base.com')
-                    .post('/foo')
-                    .reply(200, {
-                        foo: 'bar'
+        describe('when authentication is done with a POST request', function () {
+            it('resolves with the response body', async function () {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'POST' })
+                    .reply(200, JSON.stringify({ foo: 'bar' }), {
+                        headers: { 'content-type': 'application/json' }
                     });
+
+                const { statusCode, body } = await this.api.send({ path: '/foo', method: 'POST' });
+                assert.strictEqual(statusCode, 200);
+                assert.strictEqual(JSON.parse(body).foo, 'bar');
+            });
+        });
+
+        describe('when the response has a binary content type', function () {
+            it('resolves with a Buffer for application/gzip', async function () {
+                // Real gzip stream starts with magic bytes 0x1f 0x8b.
+                const gzipMagic = Buffer.from([0x1f, 0x8b, 0x08, 0x00]);
+
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/archive.gz', method: 'GET' })
+                    .reply(200, gzipMagic, { headers: { 'content-type': 'application/gzip' } });
+
+                const { body } = await this.api.send({ path: '/archive.gz' });
+                assert.ok(Buffer.isBuffer(body), 'body must be a Buffer, not a string');
+                assert.strictEqual(body.length, gzipMagic.length);
+                // Verify gzip magic bytes are intact — no UTF-8 mangling occurred.
+                assert.strictEqual(body[0], 0x1f);
+                assert.strictEqual(body[1], 0x8b);
             });
 
-            it('sends the HTTP created by #auth', function (done) {
-                this.api.auth({
-                    path: '/foo',
-                    method: 'POST'
-                });
+            it('resolves with a Buffer when responseType is arraybuffer', async function () {
+                // application/pdf is not in the auto-detect list but responseType: 'arraybuffer'
+                // forces binary mode regardless of Content-Type.
+                const binaryPayload = Buffer.from([0x25, 0x50, 0x44, 0x46]); // %PDF
 
-                this.api.send(function (err, resp, body) {
-                    assert.strictEqual(JSON.parse(body).foo, 'bar');
-                    done();
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/report.pdf', method: 'GET' })
+                    .reply(200, binaryPayload, { headers: { 'content-type': 'application/pdf' } });
+
+                const { body } = await this.api.send({
+                    path: '/report.pdf',
+                    headers: { 'Accept': 'application/gzip' } // triggers responseType: 'arraybuffer'
                 });
+                assert.ok(Buffer.isBuffer(body), 'body must be a Buffer when responseType is arraybuffer');
+                assert.strictEqual(body[0], 0x25); // %
+                assert.strictEqual(body[1], 0x50); // P
             });
         });
 
         describe('when the initial request redirects', function () {
-            it('correctly follows the redirect and re-signs the request', function (done) {
-                let authHeader;
-                nock('https://base.com')
-                    .get('/foo')
-                    .reply(function () {
-                        authHeader = this.req.headers["authorization"];
-                        return [
-                            302,
-                            '',
-                            {'location': 'https://base.com/bar'}
-                        ];
-                    })
-                    .get('/bar')
-                    .reply(function () {
-                        assert.notStrictEqual(this.req.headers["authorization"], authHeader);
-                        return [
-                            200,
-                            {someKey: 'value'}
-                        ];
+            it('correctly follows the redirect and re-signs the request', async function () {
+                // Spy on _prepareRequest to capture the Authorization header for each signed request.
+                const preparedRequests = [];
+                const originalPrepare = this.api._prepareRequest.bind(this.api);
+                this.api._prepareRequest = function (req) {
+                    const signed = originalPrepare(req);
+                    preparedRequests.push(signed);
+                    return signed;
+                };
+
+                // 302 → /bar
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(302, '', { headers: { location: 'https://base.com/bar' } });
+
+                // Final destination
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/bar', method: 'GET' })
+                    .reply(200, JSON.stringify({ someKey: 'value' }), {
+                        headers: { 'content-type': 'application/json' }
                     });
 
-                this.api.auth({
-                    path: '/foo',
-                });
+                const { statusCode, body } = await this.api.send({ path: '/foo' });
+                assert.strictEqual(statusCode, 200);
+                assert.strictEqual(JSON.parse(body).someKey, 'value');
 
-                this.api.send(function (err, resp, body) {
-                    assert.strictEqual(JSON.parse(body).someKey, 'value');
-                    done();
-                });
+                // Verify the redirect target was independently re-signed:
+                // _prepareRequest must have been called twice (original + redirect).
+                assert.strictEqual(preparedRequests.length, 2,
+                    '_prepareRequest must be called twice (original + redirect)');
+                const firstAuthHeader = preparedRequests[0].headers['Authorization'];
+                const redirectAuthHeader = preparedRequests[1].headers['Authorization'];
+                assert.ok(firstAuthHeader, 'First request must have an Authorization header');
+                assert.ok(redirectAuthHeader, 'Redirect request must have an Authorization header');
+                assert.notStrictEqual(redirectAuthHeader, firstAuthHeader,
+                    'Authorization header must be re-signed for the redirect target');
+            });
+
+            it('rejects when the redirect has no Location header', async function () {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(302, ''); // no Location header
+
+                await assert.rejects(
+                    () => this.api.send({ path: '/foo' }),
+                    (err) => {
+                        assert.ok(err instanceof Error);
+                        assert.ok(err.message.includes('Location'));
+                        return true;
+                    }
+                );
             });
         });
-        describe('when the initial request fails', function () {
-            it('correctly handles the error in the callback', function (done) {
-                nock('https://base.com')
-                    .get('/foo')
-                    .replyWithError('something awful happened');
 
-                this.api.auth({
-                    path: '/foo',
-                });
+        describe('when the request fails with an HTTP error', function () {
+            it('rejects with an error containing response details', async function () {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(401, 'Unauthorized', { headers: { 'www-authenticate': 'Bearer', 'content-type': 'text/plain' } });
 
-                this.api.send(function (data) {
-                    assert.strictEqual(data.message, 'something awful happened');
+                await assert.rejects(
+                    () => this.api.send({ path: '/foo' }),
+                    (err) => {
+                        assert.strictEqual(err.statusCode, 401);
+                        assert.ok(err.headers, 'err.headers must be present');
+                        assert.strictEqual(typeof err.body, 'string');
+                        assert.strictEqual(err.body, 'Unauthorized');
+                        assert.strictEqual(err.url, 'https://base.com/foo');
+                        assert.ok(!err.response, 'err.response must not be present');
+                        return true;
+                    }
+                );
+            });
+        });
+
+        describe('when a network error occurs', function () {
+            it('rejects with the network error', async function () {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .replyWithError(new Error('something awful happened'));
+
+                await assert.rejects(
+                    () => this.api.send({ path: '/foo' }),
+                    (err) => {
+                        assert.strictEqual(err.message, 'something awful happened');
+                        assert.ok(err.cause, 'network error must carry the underlying cause');
+                        assert.strictEqual(err.url, 'https://base.com/foo');
+                        return true;
+                    }
+                );
+            });
+        });
+
+        describe('when called with a callback (compatibility mode)', function () {
+            it('invokes the callback with (null, response, body) on success', function (done) {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(200, JSON.stringify({ ok: true }), {
+                        headers: { 'content-type': 'application/json' }
+                    });
+
+                this.api.send({ path: '/foo' }, function (err, response, body) {
+                    assert.strictEqual(err, null);
+                    assert.strictEqual(response.statusCode, 200);
+                    assert.strictEqual(JSON.parse(body).ok, true);
                     done();
                 });
             });
+
+            it('invokes the callback with (err, null, null) on HTTP error', function (done) {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(403, 'Forbidden', { headers: {} });
+
+                this.api.send({ path: '/foo' }, function (err, response, body) {
+                    assert.ok(err instanceof Error);
+                    assert.strictEqual(err.statusCode, 403);
+                    assert.strictEqual(response, null);
+                    assert.strictEqual(body, null);
+                    done();
+                });
+            });
+
+            it('returns this for chaining when a callback is provided', function (done) {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(200, '{}', { headers: { 'content-type': 'application/json' } });
+
+                // send() must return `this` (the EdgeGrid instance) for chaining,
+                // not a Promise, when a callback is provided.
+                const result = this.api.send({ path: '/foo' }, () => { done(); });
+                assert.strictEqual(result, this.api);
+            });
+
+            it('invokes a throwing callback only once', function () {
+                let callbackCalls = 0;
+                this.api._executeRequest = function () {
+                    return {
+                        then: function (onFulfilled) {
+                            try {
+                                onFulfilled({ statusCode: 200, headers: {}, body: '', url: '' });
+                                return { catch: function () {} };
+                            } catch (err) {
+                                return {
+                                    catch: function (onRejected) {
+                                        onRejected(err);
+                                    }
+                                };
+                            }
+                        }
+                    };
+                };
+
+                this.api.send({ path: '/foo' }, function () {
+                    callbackCalls++;
+                    throw new Error('callback failed');
+                });
+
+                assert.strictEqual(callbackCalls, 1);
+            });
+        });
+
+        it('supports concurrent requests from one EdgeGrid instance', async function () {
+            mockAgent.get('https://base.com')
+                .intercept({ path: '/request-a', method: 'GET' })
+                .reply(200, 'a', { headers: { 'content-type': 'text/plain' } });
+            mockAgent.get('https://base.com')
+                .intercept({ path: '/request-b', method: 'GET' })
+                .reply(200, 'b', { headers: { 'content-type': 'text/plain' } });
+
+            const [a, b] = await Promise.all([
+                this.api.send({ path: '/request-a' }),
+                this.api.send({ path: '/request-b' })
+            ]);
+
+            assert.strictEqual(a.body, 'a');
+            assert.strictEqual(b.body, 'b');
         });
 
         describe('Builds the request using the properties of the local config Object (.edgerc file)', () => {
@@ -545,9 +756,9 @@ describe('Api', function () {
 
                 const edgeGrid = new EdgeGrid(edgercObject);
                 // Call auth method
-                const response = edgeGrid.auth(req);
+                const response = edgeGrid._prepareRequest(req);
                 // Assertions
-                assert.strictEqual(response.config.max_body, 131072);
+                assert.strictEqual(edgeGrid.config.max_body, 131072);
             });
 
             it('when max_body is provided in the config - NAN', () => {
@@ -567,9 +778,9 @@ describe('Api', function () {
                 };
                 const edgeGrid = new EdgeGrid(edgercObject);
                 // Call auth method
-                const response = edgeGrid.auth(req);
+                const response = edgeGrid._prepareRequest(req);
                 // Assertions
-                assert.strictEqual(response.config.max_body, 131072);
+                assert.strictEqual(edgeGrid.config.max_body, 131072);
             });
 
             it('when max_body is not provided in the configuration, the default value is used', () => {
@@ -590,9 +801,9 @@ describe('Api', function () {
 
                 const edgeGrid = new EdgeGrid(edgercObject, undefined, undefined, undefined, undefined, 1000);
                 // Call auth method
-                const response = edgeGrid.auth(req);
+                const response = edgeGrid._prepareRequest(req);
                 // Assertions
-                assert.strictEqual(response.config.max_body, 131072); // picks default max_body 131072
+                assert.strictEqual(edgeGrid.config.max_body, 131072); // picks default max_body 131072
             });
         });
 
@@ -610,9 +821,9 @@ describe('Api', function () {
 
                 const edgeGrid = new EdgeGrid('clientToken', 'clientSecret', 'accessToken', 'example.com', false, 8192);
                 // Call auth method
-                const response = edgeGrid.auth(req);
+                const response = edgeGrid._prepareRequest(req);
                 // Assertions
-                assert.strictEqual(response.config.max_body, 131072);
+                assert.strictEqual(edgeGrid.config.max_body, 131072);
             });
 
 
@@ -629,9 +840,9 @@ describe('Api', function () {
 
                 const edgeGrid = new EdgeGrid('clientToken', 'clientSecret', 'accessToken', 'example.com');
                 // Call auth method
-                const response = edgeGrid.auth(req);
+                const response = edgeGrid._prepareRequest(req);
                 // Assertions
-                assert.strictEqual(response.config.max_body, 131072);
+                assert.strictEqual(edgeGrid.config.max_body, 131072);
             });
         });
     });

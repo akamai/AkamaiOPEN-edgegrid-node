@@ -26,7 +26,7 @@ var eg = new EdgeGrid({
   debug: true
 });
 
-eg.auth({
+eg.send({
   path: '/identity-management/v3/api-clients/self/credentials/123456',
   method: 'PUT',
   headers: {
@@ -38,8 +38,6 @@ eg.auth({
     status: 'INACTIVE',
     expiresOn: '2024-12-25T22:09:24.000Z' // the date cannot be more than two years out or it will return a 400
  }
-});
-
-eg.send(function(error, response, body) {
+}, function(error, response, body) {
   console.log(error, body);
 });
