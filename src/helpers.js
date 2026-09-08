@@ -3,6 +3,7 @@ const crypto = require('crypto'),
     path = require('path'),
     os = require('os');
 const MAX_BODY = 131072
+const MAX_REDIRECTS = 10
 
 function twoDigitNumberPad(number) {
     return String(number).padStart(2, '0');
@@ -15,6 +16,7 @@ module.exports = {
      * @see https://developer.akamai.com/legacy/introduction/Client_Auth.html#authorizationheaderfields
      */
     MAX_BODY,
+    MAX_REDIRECTS,
     createTimestamp: function () {
         const date = new Date(Date.now());
 

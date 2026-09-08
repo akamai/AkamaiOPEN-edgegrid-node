@@ -12,6 +12,8 @@
 * Passing an optional callback as the second parameter to `send()` retains the Node-style `(err, response, body)` signature for incremental migration. **The callback form is deprecated and will be removed in a future major version.**
 * Binary responses are returned as a native `Buffer` in `body`. The library automatically treats any response whose `Content-Type` is not a known text type as binary; previously binary data was only accessible via `response.data` with an explicit `responseType: 'arraybuffer'` option.
 * The request `proxy` option is no longer supported. Configure proxy via `HTTP_PROXY` / `HTTPS_PROXY` environment variables or by assigning `eg._dispatcher = new ProxyAgent(url)`.
+* Redirects to a different host (protocol + host differs from the original request) are now rejected with a clear error instead of being silently resent to the original host with a wrong reported `url`. This also prevents forwarding signed `Authorization` credentials to an untrusted host.
+* Redirect chains are now capped at 10 hops (`helpers.MAX_REDIRECTS`). A redirect loop now rejects with a "Maximum number of redirects exceeded" error instead of recursing indefinitely.
 
 ### Features/Enhancements
 

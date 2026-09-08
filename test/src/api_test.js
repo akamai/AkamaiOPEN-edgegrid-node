@@ -1,7 +1,8 @@
 const assert = require('assert'),
     path = require('path'),
     { MockAgent } = require('undici'),
-    Api = require('../../src/api');
+    Api = require('../../src/api'),
+    helpers = require('../../src/helpers');
 
 const EdgeGrid = require("../../index");
 
@@ -606,6 +607,40 @@ describe('Api', function () {
                     (err) => {
                         assert.ok(err instanceof Error);
                         assert.ok(err.message.includes('Location'));
+                        return true;
+                    }
+                );
+            });
+
+            it('rejects a redirect to a different host instead of silently using the original host', async function () {
+                mockAgent.get('https://base.com')
+                    .intercept({ path: '/foo', method: 'GET' })
+                    .reply(302, '', { headers: { location: 'https://evil.example.com/bar' } });
+
+                await assert.rejects(
+                    () => this.api.send({ path: '/foo' }),
+                    (err) => {
+                        assert.ok(err instanceof Error);
+                        assert.ok(err.message.includes('different host'));
+                        assert.strictEqual(err.url, 'https://evil.example.com/bar');
+                        return true;
+                    }
+                );
+            });
+
+            it('rejects after exceeding the maximum number of redirects', async function () {
+                const maxRedirects = helpers.MAX_REDIRECTS;
+                for (let i = 0; i <= maxRedirects; i++) {
+                    mockAgent.get('https://base.com')
+                        .intercept({ path: `/loop${i}`, method: 'GET' })
+                        .reply(302, '', { headers: { location: `https://base.com/loop${i + 1}` } });
+                }
+
+                await assert.rejects(
+                    () => this.api.send({ path: '/loop0' }),
+                    (err) => {
+                        assert.ok(err instanceof Error);
+                        assert.ok(err.message.includes('Maximum number of redirects'));
                         return true;
                     }
                 );

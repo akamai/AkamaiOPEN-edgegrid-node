@@ -161,10 +161,11 @@ EdgeGrid.prototype.send = function (requestOptions, callback) {
  * Async implementation of the HTTP dispatch.
  *
  * @param  {Object} requestOptions Signed request options from _prepareRequest.
+ * @param  {number} [redirectCount] Number of redirects followed so far. Internal use only.
  * @return {Promise<{statusCode: number, headers: object, body: string|Buffer, url: string}>}
  * @private
  */
-EdgeGrid.prototype._executeRequest = async function (requestOptions) {
+EdgeGrid.prototype._executeRequest = async function (requestOptions, redirectCount = 0) {
     const logger = getLogger();
 
     logger.debug({ url: requestOptions.url, method: requestOptions.method }, 'Starting request');
@@ -211,9 +212,16 @@ EdgeGrid.prototype._executeRequest = async function (requestOptions) {
             throw err;
         }
 
+        if (redirectCount >= helpers.MAX_REDIRECTS) {
+            const err = new Error(`Maximum number of redirects (${helpers.MAX_REDIRECTS}) exceeded`);
+            err.statusCode = response.statusCode;
+            err.url = requestOptions.url;
+            throw err;
+        }
+
         // HTTP allows duplicate Location headers; take the first value.
         const location = Array.isArray(rawLocation) ? rawLocation[0] : rawLocation;
-        return this._handleRedirect(location, requestOptions);
+        return this._handleRedirect(location, requestOptions, redirectCount + 1);
     }
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -251,12 +259,20 @@ EdgeGrid.prototype._executeRequest = async function (requestOptions) {
  * Handles an HTTP redirect by rebuilding the EdgeGrid authorization signature
  * for the new URL and retrying the request.
  *
+ * Only same-origin (protocol + host) redirects are followed. A redirect to a
+ * different host is rejected rather than silently resent to the original host
+ * (a correctness bug) or blindly resigned and forwarded with credentials to an
+ * untrusted host (a potential credential-leak / SSRF risk).
+ *
  * @param  {string} location  Resolved value of the Location header.
  * @param  {Object} requestOptions  Original request options, which will be modified for the redirect.
+ * @param  {number} redirectCount  Number of redirects followed so far, including this one.
  * @return {Promise<{statusCode: number, headers: object, body: string|Buffer, url: string}>}
  * @private
  */
-EdgeGrid.prototype._handleRedirect = async function (location, requestOptions) {
+EdgeGrid.prototype._handleRedirect = async function (location, requestOptions, redirectCount) {
+    const originalUrl = new URL(requestOptions.url);
+
     let parsedUrl;
     try {
         parsedUrl = new URL(location);
@@ -264,10 +280,19 @@ EdgeGrid.prototype._handleRedirect = async function (location, requestOptions) {
         parsedUrl = new URL(location, requestOptions.url);
     }
 
+    if (parsedUrl.protocol !== originalUrl.protocol || parsedUrl.host !== originalUrl.host) {
+        const err = new Error(
+            `Redirect to a different host (${parsedUrl.protocol}//${parsedUrl.host}) is not supported; ` +
+            `refusing to resend signed credentials to a host other than ${originalUrl.protocol}//${originalUrl.host}`
+        );
+        err.url = parsedUrl.toString();
+        throw err;
+    }
+
     requestOptions.url = undefined;
     requestOptions.path = parsedUrl.pathname + parsedUrl.search;
 
-    return this._executeRequest(this._prepareRequest(requestOptions));
+    return this._executeRequest(this._prepareRequest(requestOptions), redirectCount);
 };
 
 /**
