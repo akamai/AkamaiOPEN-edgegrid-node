@@ -1,34 +1,93 @@
-import { AxiosError, AxiosResponse } from "axios";
-
 declare class EdgeGrid {
     constructor(clientTokenOrOptions: string | object,
                 clientSecret?: string,
                 accessToken?: string,
                 host?: string,
-                debug?: boolean,
                 max_body?: number);
 
-    request: object;
     config: object;
+    _dispatcher: EdgeGrid.HttpDispatcher | null | undefined;
 
     /**
-    * Sends the request and invokes the callback function.
-    *
-    * @param  {Function} callback The callback function.
-    * @return EdgeGrid object (self)
-    */
-    send(callback: (error: AxiosError, response?: AxiosResponse, body?: string) => void): EdgeGrid;
-
-    /**
-    * Builds the request using the properties of the local config Object.
+     * Authenticates and executes a request, returning a Promise.
      *
-    * @param  {Object} req The request Object. Can optionally contain a
-    *                      'headersToSign' property: An ordered list header names
-    *                      that will be included in the signature. This will be
-    *                      provided by specific APIs.
-    * @return EdgeGrid object (self)
-    */
-    auth(req: object): EdgeGrid;
+     * Resolves with { statusCode, headers, body, url } on a 2xx response.
+     * Rejects with an EdgeGridError on HTTP errors (4xx/5xx) or network failures.
+     */
+    send(request: EdgeGrid.EdgeGridRequest): Promise<EdgeGrid.SendResult>;
+    /**
+     * @deprecated Use `send(request)` (Promise API) instead.
+     * Callback support will be removed in a future major version.
+     *
+     * Compatibility mode: the callback is invoked with (err, response, body) and `this` is returned
+     * for chaining, matching the pre-v5 behavior.
+     */
+    send(request: EdgeGrid.EdgeGridRequest, callback: (
+        error: EdgeGrid.EdgeGridError | null,
+        response?: EdgeGrid.SendResult | null,
+        body?: string | Buffer | null
+    ) => void): this;
+
+    enableLogging(option: boolean | object): this;
+}
+
+declare namespace EdgeGrid {
+    /**
+     * Minimal structural interface for an HTTP dispatcher (e.g. undici's Dispatcher,
+     * ProxyAgent, or MockAgent). Typed structurally so callers are not forced to
+     * take a direct dependency on undici.
+     */
+    export interface HttpDispatcher {
+        dispatch(options: object, handler: object): boolean;
+    }
+
+    /** Request options passed to send(). */
+    export interface EdgeGridRequest {
+        /** API path, e.g. '/identity-management/v3/user-profile'. */
+        path: string;
+        /** HTTP method. Defaults to 'GET'. */
+        method?: string;
+        /** Request headers. */
+        headers?: Record<string, string>;
+        /** Request body. Objects are JSON-serialised automatically. */
+        body?: string | Buffer | Uint8Array | object;
+        /** Query string parameters as a key-value map. */
+        qs?: Record<string, string | number | boolean>;
+        /** Ordered list of header names to include in the EdgeGrid signature. */
+        headersToSign?: Record<string, string>;
+    }
+
+    /** Resolved value of the Promise returned by send(). */
+    export interface SendResult {
+        /** HTTP status code. */
+        statusCode: number;
+        /** Response headers. */
+        headers: Record<string, string | string[]>;
+        /**
+         * Response body.
+         * - string  for text responses: text/*, application/json, application/xml,
+         *           application/javascript, and any *+json or *+xml type
+         * - Buffer  for all other content types (binary/unknown), or when
+         *           responseType: 'arraybuffer' is explicitly set
+         */
+        body: string | Buffer;
+        /** Final URL of the request, after any redirects. */
+        url: string;
+    }
+
+    /** Error thrown (Promise rejection) for HTTP errors (4xx, 5xx) or network failures. */
+    export interface EdgeGridError extends Error {
+        /** HTTP status code. Absent for network-level errors (e.g. connection refused). */
+        statusCode?: number;
+        /** Response headers. Absent for network-level errors. */
+        headers?: Record<string, string | string[]>;
+        /** Response body. Absent for network-level errors. */
+        body?: string | Buffer;
+        /** URL that was requested when the error occurred. */
+        url?: string;
+        /** Underlying transport-layer error, present for network-level failures. */
+        cause?: Error;
+    }
 }
 
 export = EdgeGrid;

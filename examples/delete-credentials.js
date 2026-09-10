@@ -24,15 +24,13 @@ var eg = new EdgeGrid({
   section: 'default'
 });
 
-eg.auth({
+eg.send({
   path: '/identity-management/v3/api-clients/self/credentials/123456',
   method: 'DELETE',
   headers: {
     'Accept': "application/json"
   },
   body: {}
-});
-
-eg.send(function(error, response, body) {
+}, function(error, response, body) {
   console.log(body, error);
 });

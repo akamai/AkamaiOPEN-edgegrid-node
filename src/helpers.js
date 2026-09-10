@@ -3,6 +3,7 @@ const crypto = require('crypto'),
     path = require('path'),
     os = require('os');
 const MAX_BODY = 131072
+const MAX_REDIRECTS = 10
 
 function twoDigitNumberPad(number) {
     return String(number).padStart(2, '0');
@@ -15,6 +16,7 @@ module.exports = {
      * @see https://developer.akamai.com/legacy/introduction/Client_Auth.html#authorizationheaderfields
      */
     MAX_BODY,
+    MAX_REDIRECTS,
     createTimestamp: function () {
         const date = new Date(Date.now());
 
@@ -32,22 +34,16 @@ module.exports = {
         var logger = getLogger()
         let contentHash = '',
             preparedBody = request.body || '',
-            isTarball = preparedBody instanceof Uint8Array && request.headers['Content-Type'] === 'application/gzip';
+            isTarball = this.isBinaryBundle(preparedBody, request.headers && request.headers['Content-Type']);
 
         if (typeof preparedBody === 'object' && !isTarball) {
-            let postDataNew = '',
-                key;
-
             logger.info('Body content is type Object, transforming to POST data');
 
-            for (key in preparedBody) {
-                postDataNew += key + '=' + encodeURIComponent(JSON.stringify(preparedBody[key])) + '&';
+            const parts = [];
+            for (const key in preparedBody) {
+                parts.push(key + '=' + encodeURIComponent(JSON.stringify(preparedBody[key])));
             }
-
-            // Strip trailing ampersand
-            postDataNew = postDataNew.replace(/&+$/, "");
-
-            preparedBody = postDataNew;
+            preparedBody = parts.join('&');
             request.body = preparedBody; // Is this required or being used?
         }
 
@@ -79,6 +75,21 @@ module.exports = {
         }
 
         return contentHash;
+    },
+    /**
+     * Determines if the provided body is a binary GZIP or TAR.GZ bundle.
+     *
+     * @param {any} body - The request body payload to evaluate.
+     * @param {string} [contentType] - The 'Content-Type' header from the request.
+     * @returns {boolean} True if the body is a Uint8Array and the content type indicates a gzip/tarball archive.
+     */
+    isBinaryBundle: function (body, contentType) {
+        if (!(body instanceof Uint8Array)) {
+            return false;
+        }
+
+        const mediaType = (contentType || '').split(';')[0].trim().toLowerCase();
+        return mediaType === 'application/gzip' || mediaType === 'application/tar+gzip';
     },
     /**
      *

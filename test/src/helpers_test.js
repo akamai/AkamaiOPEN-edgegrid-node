@@ -40,6 +40,32 @@ describe('helpers', function () {
                     method: 'POST'
                 }), 'LCa0a2j/xo/5m0U8HTBBNBNCLXBkg7+g+YpeiGJm564=');
             });
+
+            ['application/gzip', 'application/tar+gzip'].forEach(function (contentType) {
+                it(`does not serialize a ${contentType} bundle`, function () {
+                    const body = new Uint8Array([0x1f, 0x8b, 0x08, 0x00]);
+                    const request = {
+                        body,
+                        method: 'POST',
+                        headers: { 'Content-Type': contentType }
+                    };
+
+                    assert.strictEqual(
+                        helpers.contentHash(request),
+                        helpers.base64Sha256(body)
+                    );
+                    assert.strictEqual(request.body, body);
+                });
+            });
+        });
+    });
+
+    describe('#isBinaryBundle', function () {
+        it('recognizes tar+gzip content types with parameters case-insensitively', function () {
+            assert.strictEqual(
+                helpers.isBinaryBundle(new Uint8Array(), 'Application/Tar+Gzip; charset=binary'),
+                true
+            );
         });
     });
 
