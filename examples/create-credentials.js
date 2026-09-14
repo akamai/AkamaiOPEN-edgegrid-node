@@ -20,15 +20,13 @@ var eg = new EdgeGrid({
   debug: true
 });
 
-eg.auth({
+eg.send({
   path: '/identity-management/v3/api-clients/self/credentials',
   method: 'POST',
   headers: {
     'Accept': "application/json"
   },
   body: {}
-});
-
-eg.send(function(error, response, body) {
+}, function(error, response, body) {
   console.log(body, error);
 });
