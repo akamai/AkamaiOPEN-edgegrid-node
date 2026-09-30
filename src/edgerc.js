@@ -29,7 +29,7 @@ function validatedConfig(config) {
     /**
      * @deprecated max_body - This value is deprecated.
      */
-    config.max_body = helpers.MAX_BODY
+    config.max_body = helpers.MAX_BODY;
 
     if (!(config.host && config.access_token &&
         config.client_secret && config.client_token)) {
