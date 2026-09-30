@@ -52,6 +52,7 @@ async function consumeBody(responseBody, url, isBinary) {
  * @deprecated max_body
  */
 const EdgeGrid = function (client_token, client_secret, access_token, host, max_body) {
+    void max_body; // retained for backwards-compatible signature; value is deprecated and unused
     // accepting an object containing a path to .edgerc and a config section
     if (typeof arguments[0] === 'object') {
         this._setConfigFromObj(arguments[0]);

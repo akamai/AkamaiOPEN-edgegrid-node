@@ -33,6 +33,12 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run type definition tests
+        run: npm run test-types
+
       # Creates the exact tarball that will be published.
       - name: Pack distribution tarball
         run: |

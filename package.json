@@ -8,6 +8,8 @@
   },
   "scripts": {
     "test": "EDGEGRID_ENV=test ./node_modules/.bin/mocha $(find test -name '*.js')",
+    "test-types": "tsd",
+    "lint": "jshint src index.js",
     "ci": "EDGEGRID_ENV=test MOCHA_FILE=./test/tests.xml nyc --reporter cobertura --report-dir test/coverage/ ./node_modules/.bin/mocha --reporter mocha-junit-reporter --reporter-options jenkinsMode=true --reporter-options antMode=true $(find test -name '*.js')"
   },
   "repository": {
@@ -20,8 +22,17 @@
     "api",
     "edgegrid"
   ],
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "src"
+  ],
+  "types": "./index.d.ts",
   "exports": {
-    ".": "./index.js"
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
   },
   "license": "Apache-2.0",
   "dependencies": {
@@ -30,6 +41,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.1.0",
+    "jshint": "^2.13.6",
     "mocha": "^11.0.1",
     "mocha-junit-reporter": "^2.1.0",
     "nyc": "^18.0.0",
