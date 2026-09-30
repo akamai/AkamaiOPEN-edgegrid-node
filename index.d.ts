@@ -1,11 +1,25 @@
 declare class EdgeGrid {
-    constructor(clientTokenOrOptions: string | object,
-                clientSecret?: string,
-                accessToken?: string,
-                host?: string,
-                max_body?: number);
+    /**
+     * Creates a client configured from an .edgerc credentials file.
+     */
+    constructor(options: EdgeGrid.EdgeGridOptions);
+    /**
+     * Creates a client configured from explicit credential strings.
+     */
+    constructor(clientToken: string,
+                clientSecret: string,
+                accessToken: string,
+                host: string);
+    /**
+     * @deprecated The `max_body` parameter is deprecated. Please use the 4-argument constructor.
+     */
+    constructor(clientToken: string,
+                clientSecret: string,
+                accessToken: string,
+                host: string,
+                max_body: number);
 
-    config: object;
+    config: EdgeGrid.EdgeGridConfig;
     _dispatcher: EdgeGrid.HttpDispatcher | null | undefined;
 
     /**
@@ -32,6 +46,27 @@ declare class EdgeGrid {
 }
 
 declare namespace EdgeGrid {
+    /**
+     * Options accepted by the `new EdgeGrid({ ... })` form, which reads
+     * credentials from an .edgerc file.
+     */
+    export interface EdgeGridOptions {
+        /** Path to the .edgerc credentials file. Defaults to '~/.edgerc' when omitted. */
+        path?: string;
+        /** Section header within the .edgerc file to read. Defaults to 'default' when omitted. */
+        section?: string;
+    }
+
+    /** Resolved client configuration, whichever constructor form was used. */
+    export interface EdgeGridConfig {
+        client_token: string;
+        client_secret: string;
+        access_token: string;
+        host: string;
+        /** @deprecated retained for backwards compatibility; no longer configurable. */
+        max_body: number;
+    }
+
     /**
      * Minimal structural interface for an HTTP dispatcher (e.g. undici's Dispatcher,
      * ProxyAgent, or MockAgent). Typed structurally so callers are not forced to

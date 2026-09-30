@@ -2,8 +2,8 @@ const crypto = require('crypto'),
     { getLogger } = require('./logger'),
     path = require('path'),
     os = require('os');
-const MAX_BODY = 131072
-const MAX_REDIRECTS = 10
+const MAX_BODY = 131072;
+const MAX_REDIRECTS = 10;
 
 function twoDigitNumberPad(number) {
     return String(number).padStart(2, '0');
@@ -31,7 +31,7 @@ module.exports = {
             '+0000';
     },
     contentHash: function (request) {
-        var logger = getLogger()
+        var logger = getLogger();
         let contentHash = '',
             preparedBody = request.body || '',
             isTarball = this.isBinaryBundle(preparedBody, request.headers && request.headers['Content-Type']);
@@ -148,9 +148,9 @@ module.exports = {
             userAgents.push(`AkamaiCLI-${process.env['AKAMAI_CLI_COMMAND']}/${process.env['AKAMAI_CLI_COMMAND_VERSION']}`);
         }
 
-        userAgents = userAgents.filter(v => v)
+        userAgents = userAgents.filter(v => v);
         if (userAgents.length > 0) {
-            headers['User-Agent'] = userAgents.join(' ')
+            headers['User-Agent'] = userAgents.join(' ');
         }
 
         return headers;
