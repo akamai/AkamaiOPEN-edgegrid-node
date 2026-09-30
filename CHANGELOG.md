@@ -23,6 +23,7 @@
 * Added `EdgeGridOptions` and `EdgeGridConfig` TypeScript interfaces, and split the constructor into precise overloads for the `.edgerc`-options-object form and the positional string-credentials form, replacing the previous untyped `object` parameter.
 * Reduced the published npm package size by adding a `files` allow-list that excludes `test/`, `ci/`, `examples/`, and dev-tooling config from the published tarball.
 * Minimum supported Node.js version is now **v22**.
+* Updated various dependencies.
 
 ### Bug fixes
 
