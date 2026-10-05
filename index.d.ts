@@ -51,7 +51,11 @@ declare namespace EdgeGrid {
      * credentials from an .edgerc file.
      */
     export interface EdgeGridOptions {
-        /** Path to the .edgerc credentials file. Defaults to '~/.edgerc' when omitted. */
+        /**
+         * Path to the .edgerc credentials file. Optional only if the corresponding
+         * AKAMAI_* (or AKAMAI_<SECTION>_*) environment variables are set instead;
+         * there is no implicit fallback to '~/.edgerc' — omitting both throws.
+         */
         path?: string;
         /** Section header within the .edgerc file to read. Defaults to 'default' when omitted. */
         section?: string;
