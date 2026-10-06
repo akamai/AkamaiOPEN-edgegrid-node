@@ -20,7 +20,15 @@
 * `Uint8Array` request bodies with `application/gzip` or `application/tar+gzip` are preserved while EdgeGrid authentication is generated.
 * Proxy support via `HTTP_PROXY` / `HTTPS_PROXY` environment variables works automatically with no configuration required.
 * Added `EdgeGridRequest`, `SendResult`, and `EdgeGridError` as named TypeScript interfaces in the `EdgeGrid` namespace, giving callers explicit auto-complete for all supported fields. `send()` is typed as `Promise<EdgeGrid.SendResult>` with an optional deprecated callback overload.
+* Added `EdgeGridOptions` and `EdgeGridConfig` TypeScript interfaces, and split the constructor into precise overloads for the `.edgerc`-options-object form and the positional string-credentials form, replacing the previous untyped `object` parameter.
+* `new EdgeGrid({ ... })` now defaults `path` to `~/.edgerc` when omitted (with `section` using `'default'` value), so credentials stored at the conventional location no longer require an explicit `path`. A missing `~/.edgerc` (and no matching `AKAMAI_*` environment variables) now throws a clearer, actionable error message.
+* Reduced the published npm package size by adding a `files` allow-list that excludes `test/`, `ci/`, `examples/`, and dev-tooling config from the published tarball.
 * Minimum supported Node.js version is now **v22**.
+* Updated various dependencies.
+
+### Bug fixes
+
+* Fixed the `package.json` `exports` map so TypeScript consumers using `moduleResolution: "node16"/"nodenext"/"bundler"` correctly resolve the bundled type declarations. Previously only classic/`node10` resolution picked up `index.d.ts`, so some consumers received no types at all.
 
 ## 4.0.4 (Jul 2, 2026)
 

@@ -1,4 +1,6 @@
 const assert = require('assert'),
+    fs = require('fs'),
+    os = require('os'),
     path = require('path'),
     { MockAgent } = require('undici'),
     Api = require('../../src/api'),
@@ -186,7 +188,20 @@ describe('Api', function () {
                 });
             });
 
-            describe('when it is instantiated with an object that specifies an inadequate path', function () {
+            describe('when it is instantiated with an empty path and no ~/.edgerc exists', function () {
+                let originalHome, tmpDir;
+
+                beforeEach(function () {
+                    originalHome = process.env['HOME'];
+                    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'edgerc-test-'));
+                    process.env['HOME'] = tmpDir;
+                });
+
+                afterEach(function () {
+                    process.env['HOME'] = originalHome;
+                    fs.rmSync(tmpDir, { recursive: true, force: true });
+                });
+
                 it('throws the appropriate error', function () {
                     assert.throws(
                         function () {
@@ -194,8 +209,29 @@ describe('Api', function () {
                                 path: ''
                             });
                         },
-                        /Either path to '.edgerc' or environment variables with edgerc configuration has to be provided./
+                        /No '\.edgerc' file found at '.*\.edgerc' and no matching AKAMAI_\* environment variables were set\./
                     );
+                });
+            });
+
+            describe('when it is instantiated with an empty path and ~/.edgerc exists', function () {
+                let originalHome, tmpDir;
+
+                beforeEach(function () {
+                    originalHome = process.env['HOME'];
+                    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'edgerc-test-'));
+                    fs.copyFileSync(path.resolve(__dirname, '../test_edgerc'), path.join(tmpDir, '.edgerc'));
+                    process.env['HOME'] = tmpDir;
+                });
+
+                afterEach(function () {
+                    process.env['HOME'] = originalHome;
+                    fs.rmSync(tmpDir, { recursive: true, force: true });
+                });
+
+                it('falls back to reading ~/.edgerc', function () {
+                    const api = new Api({ path: '' });
+                    assert.strictEqual(api.config.client_token, 'clientToken');
                 });
             });
         });

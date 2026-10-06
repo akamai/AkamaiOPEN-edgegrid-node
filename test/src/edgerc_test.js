@@ -1,4 +1,6 @@
 const assert = require('assert'),
+    fs = require('fs'),
+    os = require('os'),
     path = require('path'),
     edgerc = require('../../src/edgerc');
 
@@ -196,6 +198,44 @@ describe('edgerc', function () {
                 assert.strictEqual(this.config.client_secret, "clientSecret");
                 assert.strictEqual(this.config.access_token, "accessToken");
                 assert.equal(this.config.max_body, 131072);
+            });
+        });
+    });
+
+    describe('when no path and no env vars are provided', function () {
+        let originalHome;
+
+        beforeEach(function () {
+            originalHome = process.env['HOME'];
+            this.tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'edgerc-test-'));
+            process.env['HOME'] = this.tmpDir;
+        });
+
+        afterEach(function () {
+            process.env['HOME'] = originalHome;
+            fs.rmSync(this.tmpDir, { recursive: true, force: true });
+        });
+
+        describe('and ~/.edgerc exists', function () {
+            beforeEach(function () {
+                fs.copyFileSync(path.resolve(__dirname, '../test_edgerc'), path.join(this.tmpDir, '.edgerc'));
+                this.config = edgerc();
+            });
+
+            it('falls back to reading ~/.edgerc', function () {
+                assert.strictEqual(this.config.host, 'https://example.luna.akamaiapis.net');
+                assert.strictEqual(this.config.client_token, 'clientToken');
+            });
+        });
+
+        describe('and ~/.edgerc does not exist', function () {
+            it('throws a descriptive error', function () {
+                assert.throws(
+                    function () {
+                        return edgerc();
+                    },
+                    /No '\.edgerc' file found at '.*\.edgerc' and no matching AKAMAI_\* environment variables were set\./
+                );
             });
         });
     });

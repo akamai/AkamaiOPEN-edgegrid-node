@@ -29,7 +29,7 @@ function validatedConfig(config) {
     /**
      * @deprecated max_body - This value is deprecated.
      */
-    config.max_body = helpers.MAX_BODY
+    config.max_body = helpers.MAX_BODY;
 
     if (!(config.host && config.access_token &&
         config.client_secret && config.client_token)) {
@@ -118,11 +118,23 @@ module.exports = function (path, conf) {
     if (envConf['host']) {
         return envConf;
     }
-    if (!path) {
-        throw new Error("Either path to '.edgerc' or environment variables with edgerc configuration has to be provided.");
+
+    const resolvedPath = helpers.resolveHome(path || '~/.edgerc');
+    let edgercContents;
+    try {
+        edgercContents = fs.readFileSync(resolvedPath).toString();
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            throw new Error(
+                `No '.edgerc' file found at '${resolvedPath}' and no matching AKAMAI_* ` +
+                "environment variables were set. Either pass a valid 'path', or set the " +
+                "AKAMAI_* (or AKAMAI_<SECTION>_*) environment variables."
+            );
+        }
+        throw err;
     }
-    path = helpers.resolveHome(path);
-    const edgerc = fs.readFileSync(path).toString().split('\n'),
+
+    const edgerc = edgercContents.split(/\r?\n/),
         confData = getSection(edgerc, confSection);
 
     if (!confData.length) {

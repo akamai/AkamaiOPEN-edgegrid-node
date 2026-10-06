@@ -35,6 +35,12 @@ You can obtain the authentication credentials through an API client. Requests to
     });
     ```
 
+    Both `path` and `section` are optional. `path` defaults to `~/.edgerc` and `section` defaults to `'default'`, so if you placed your credentials in `~/.edgerc` under `[default]`, you can omit both:
+
+    ```javascript
+    var eg = new EdgeGrid({});
+    ```
+
     Alternatively, you can hard code your credentials by passing the credential values to the `EdgeGrid()` method.
 
     ```javascript
