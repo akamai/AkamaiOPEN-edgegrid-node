@@ -134,7 +134,7 @@ module.exports = function (path, conf) {
         throw err;
     }
 
-    const edgerc = edgercContents.split('\n'),
+    const edgerc = edgercContents.split(/\r?\n/),
         confData = getSection(edgerc, confSection);
 
     if (!confData.length) {
