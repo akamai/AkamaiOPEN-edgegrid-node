@@ -1,6 +1,6 @@
 # Release notes
 
-## X.X.X (X X, X)
+## 5.0.0 (UNRELEASED)
 
 ### Breaking Changes
 
@@ -29,6 +29,7 @@
 ### Bug fixes
 
 * Fixed the `package.json` `exports` map so TypeScript consumers using `moduleResolution: "node16"/"nodenext"/"bundler"` correctly resolve the bundled type declarations. Previously only classic/`node10` resolution picked up `index.d.ts`, so some consumers received no types at all.
+* Fixed parsing of `.edgerc` files with Windows-style (CRLF) line endings. Previously a trailing `\r` was left on each config value (e.g. `host`), which could silently break the signed request.
 
 ## 4.0.4 (Jul 2, 2026)
 

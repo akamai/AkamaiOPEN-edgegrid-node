@@ -1,6 +1,6 @@
 {
   "name": "akamai-edgegrid",
-  "version": "4.0.4",
+  "version": "5.0.0-rc.0",
   "description": "Authentication handler for the Akamai OPEN EdgeGrid Authentication scheme in Node.js",
   "main": "index.js",
   "engines": {
