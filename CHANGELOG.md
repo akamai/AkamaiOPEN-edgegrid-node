@@ -1,6 +1,6 @@
 # Release notes
 
-## 5.0.0 (UNRELEASED)
+## 5.0.0 (Oct 8, 2026)
 
 ### Breaking Changes
 
