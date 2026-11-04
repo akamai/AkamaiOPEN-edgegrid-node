@@ -16,6 +16,7 @@ export default [
       sourceType: "commonjs",
       globals: {
         ...globals.node,
+        ...globals.mocha,
       },
     },
     rules: {
