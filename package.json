@@ -9,7 +9,8 @@
   "scripts": {
     "test": "EDGEGRID_ENV=test ./node_modules/.bin/mocha $(find test -name '*.js')",
     "test-types": "tsd",
-    "lint": "jshint src index.js",
+    "lint": "eslint src/ index.js",
+    "lint:fix": "eslint src/ index.js --fix",
     "ci": "EDGEGRID_ENV=test MOCHA_FILE=./test/tests.xml nyc --reporter cobertura --report-dir test/coverage/ ./node_modules/.bin/mocha --reporter mocha-junit-reporter --reporter-options jenkinsMode=true --reporter-options antMode=true $(find test -name '*.js')"
   },
   "repository": {
@@ -37,11 +38,13 @@
   "license": "Apache-2.0",
   "dependencies": {
     "pino": "^9.6.0",
-    "undici": "^7.0.0"
+    "undici": "^7.30.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^26.1.0",
-    "jshint": "^2.13.6",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0",
     "mocha": "^11.0.1",
     "mocha-junit-reporter": "^2.1.0",
     "nyc": "^18.0.0",
