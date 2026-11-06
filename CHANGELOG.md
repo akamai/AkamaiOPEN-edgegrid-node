@@ -1,5 +1,11 @@
 # Release notes
 
+## 5.0.1 (UNRELEASED)
+
+### Features/Enhancements
+
+* Bumped the minimum `undici` dependency version to `^7.30.1` to address known vulnerabilities in earlier versions.
+
 ## 5.0.0 (Oct 8, 2026)
 
 ### Breaking Changes
