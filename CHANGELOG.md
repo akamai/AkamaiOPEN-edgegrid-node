@@ -1,6 +1,6 @@
 # Release notes
 
-## 5.0.1 (UNRELEASED)
+## 5.0.1 (Nov 9, 2026)
 
 ### Features/Enhancements
 
